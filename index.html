@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Zen Match-3</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="title">zen match-3</div>
+      <div class="hint">тихо двигаем еду под сериал</div>
+    </header>
+
+    <section class="board-wrap">
+      <div id="board" class="board" aria-label="Игровое поле"></div>
+    </section>
+
+    <footer class="footer">
+      <button id="resetBtn" class="btn" type="button">перемешать</button>
+      <div id="status" class="status" aria-live="polite"></div>
+    </footer>
+  </main>
+
+  <script src="./main.js"></script>
+</body>
+</html>

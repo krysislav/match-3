@@ -1,0 +1,141 @@
+:root{
+  --bg: #0f1115;
+  --panel: #151922;
+  --panel2:#111520;
+  --text:#e9ecf3;
+  --muted:#aab2c5;
+
+  --cell: 52px;
+  --gap: 10px;
+  --radius: 16px;
+
+  --outline: rgba(255,255,255,0.08);
+  --select: rgba(255,255,255,0.35);
+
+  --move-ms: 1240ms;
+  --pop-ms: 1160ms;
+  --ui-ms: 1160ms;
+}
+
+*{ box-sizing:border-box; }
+html,body{ height:100%; }
+body{
+  margin:0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: radial-gradient(1200px 900px at 50% 10%, #1a2030 0%, var(--bg) 55%);
+  color: var(--text);
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  padding: 18px;
+}
+
+.app{
+  width: min(550px, 100%);
+  background: linear-gradient(180deg, var(--panel) 0%, var(--panel2) 100%);
+  border: 1px solid var(--outline);
+  border-radius: 24px;
+  padding: 16px 10px 14px;
+  box-shadow: 0 18px 60px rgba(0,0,0,0.55);
+}
+
+.topbar{ padding: 6px 6px 12px; }
+.title{ font-weight: 700; letter-spacing: 0.4px; text-transform: lowercase; }
+.hint{ margin-top: 4px; color: var(--muted); font-size: 13px; }
+
+.board-wrap{
+  display:flex;
+  justify-content:center;
+  padding: 10px 4px;
+}
+
+/* ВАЖНО: теперь это НЕ grid.
+   Поле — контейнер, а клетки — absolute по координатам. */
+.board{
+  position: relative;
+  border-radius: 22px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--outline);
+
+  /* фиксируем размеры поля, чтобы absolute клетки имели базу */
+  width: calc(8 * var(--cell) + 7 * var(--gap) + 24px);
+  height: calc(8 * var(--cell) + 7 * var(--gap) + 24px);
+
+  touch-action: manipulation;
+  user-select: none;
+}
+
+.cell{
+  position: absolute;
+  width: var(--cell);
+  height: var(--cell);
+
+  /* позиционирование через CSS variables */
+  --tx: 0px;
+  --ty: 0px;
+  --s: 1;
+  transform: translate(var(--tx), var(--ty)) scale(var(--s));
+
+  background: rgba(37, 37, 37, 0.10);
+  border-radius: var(--radius);
+  border: 1px solid rgba(255,255,255,0.10);
+
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size: 26px;
+  line-height: 1;
+
+  cursor: pointer;
+
+  transition:
+    transform var(--move-ms) cubic-bezier(.2,.8,.2,1),
+    opacity var(--pop-ms) ease,
+    box-shadow var(--ui-ms) ease,
+    border-color var(--ui-ms) ease;
+  will-change: transform, opacity;
+}
+
+.cell:hover{
+  border-color: rgba(255,255,255,0.18);
+}
+
+.cell.selected{
+  box-shadow: 0 0 0 3px var(--select);
+  border-color: rgba(255,255,255,0.24);
+}
+
+.cell.newborn{
+  opacity: 0;
+}
+
+.cell.removing{
+  opacity: 0;
+  --s: 0.25;
+}
+
+.footer{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 10px;
+  padding: 10px 6px 0;
+}
+
+.btn{
+  background: rgba(255,255,255,0.08);
+  color: var(--text);
+  border: 1px solid var(--outline);
+  padding: 10px 12px;
+  border-radius: 14px;
+  cursor:pointer;
+  font-weight: 600;
+}
+.btn:hover{ background: rgba(255,255,255,0.12); }
+
+.status{
+  color: var(--muted);
+  font-size: 13px;
+  text-align:right;
+  min-height: 18px;
+}
