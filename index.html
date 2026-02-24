@@ -9,12 +9,68 @@
 <body>
   <main class="app">
     <header class="topbar">
-      <div class="title">zen match-3</div>
-      <div class="hint">тихо двигаем еду под сериал</div>
+      <div>
+        <div class="title">zen match-3</div>
+        <div class="hint">тихо двигаем еду под сериал</div>
+      </div>
+
+      <button id="settingsBtn" class="icon-btn" type="button" aria-label="Настройки">⚙️</button>
     </header>
 
     <section class="board-wrap">
+      <!-- Игра -->
       <div id="board" class="board" aria-label="Игровое поле"></div>
+
+      <!-- Настройки (показываются вместо board) -->
+      <div id="settingsPanel" class="board settings-panel" aria-label="Настройки" hidden>
+        <div class="settings-top">
+          <div class="settings-title">настройки</div>
+          <button id="settingsCloseBtn" class="icon-btn" type="button" aria-label="Закрыть">✕</button>
+        </div>
+
+        <div class="settings-list">
+          <div class="setting">
+            <div class="setting-row">
+              <div class="setting-label">сложность</div>
+              <div id="difficultyValue" class="setting-value">2</div>
+            </div>
+            <input id="difficultySlider" class="slider" type="range" min="0" max="4" step="1" value="2" />
+            <div class="setting-hint">типов еды: <span id="difficultyTypes">6</span></div>
+          </div>
+
+          <div class="setting">
+            <div class="setting-row">
+              <div class="setting-label">скорость анимации</div>
+              <div id="speedValue" class="setting-value">1</div>
+            </div>
+            <input id="speedSlider" class="slider" type="range" min="0" max="2" step="1" value="1" />
+            <div class="setting-hint">чтобы всё видеть</div>
+          </div>
+
+          <div class="setting">
+            <div class="setting-row">
+              <div class="setting-label">животное</div>
+              <div class="setting-value" id="animalValue">🐭</div>
+            </div>
+            <div class="segmented">
+              <button type="button" class="seg-btn" data-animal="🐭">🐭</button>
+              <button type="button" class="seg-btn" data-animal="🐹">🐹</button>
+            </div>
+            <div class="setting-hint">кто приходит и всё жрёт</div>
+          </div>
+
+          <div class="setting">
+            <div class="setting-row">
+              <div class="setting-label">screen shake</div>
+              <label class="switch">
+                <input id="shakeToggle" type="checkbox" />
+                <span class="switch-ui"></span>
+              </label>
+            </div>
+            <div class="setting-hint">мягко трясём поле при больших комбо</div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <footer class="footer">

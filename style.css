@@ -1,63 +1,111 @@
-:root{
+:root {
   --bg: #0f1115;
   --panel: #151922;
-  --panel2:#111520;
-  --text:#e9ecf3;
-  --muted:#aab2c5;
+  --panel2: #111520;
+  --text: #e9ecf3;
+  --muted: #aab2c5;
 
   --cell: 52px;
   --gap: 10px;
   --radius: 16px;
 
-  --outline: rgba(255,255,255,0.08);
-  --select: rgba(255,255,255,0.35);
+  --outline: rgba(255, 255, 255, 0.08);
+  --select: rgba(255, 255, 255, 0.35);
 
-  --move-ms: 1240ms;
-  --pop-ms: 1160ms;
-  --ui-ms: 1160ms;
+  /* базовые времена (для speed=1) */
+  --move-ms: 480ms;
+  --pop-ms: 320ms;
+  --ui-ms: 320ms;
+  --shake-ms: 240ms;
+
+  /* множитель скорости (0=медленно, 1=средне, 2=быстро) */
+  --speed-mult: 1;
+
+  /* кто ест клетки */
+  --eater: "🐭";
 }
 
-*{ box-sizing:border-box; }
-html,body{ height:100%; }
-body{
-  margin:0;
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   background: radial-gradient(1200px 900px at 50% 10%, #1a2030 0%, var(--bg) 55%);
   color: var(--text);
-  display:flex;
-  justify-content:center;
-  align-items:center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
   padding: 18px;
 }
 
-.app{
+.app {
   width: min(550px, 100%);
   background: linear-gradient(180deg, var(--panel) 0%, var(--panel2) 100%);
   border: 1px solid var(--outline);
   border-radius: 24px;
   padding: 16px 10px 14px;
-  box-shadow: 0 18px 60px rgba(0,0,0,0.55);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
 }
 
-.topbar{ padding: 6px 6px 12px; }
-.title{ font-weight: 700; letter-spacing: 0.4px; text-transform: lowercase; }
-.hint{ margin-top: 4px; color: var(--muted); font-size: 13px; }
+.topbar {
+  padding: 6px 6px 12px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
 
-.board-wrap{
-  display:flex;
-  justify-content:center;
+.title {
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: lowercase;
+}
+
+.hint {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.icon-btn {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  border: 1px solid var(--outline);
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
+.icon-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.board-wrap {
+  display: flex;
+  justify-content: center;
   padding: 10px 4px;
+  position: relative;
 }
 
-/* ВАЖНО: теперь это НЕ grid.
-   Поле — контейнер, а клетки — absolute по координатам. */
-.board{
+/* Поле — контейнер, клетки absolute */
+.board {
   position: relative;
   border-radius: 22px;
-  background: rgba(255,255,255,0.03);
+  background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--outline);
 
-  /* фиксируем размеры поля, чтобы absolute клетки имели базу */
+  /* фиксируем размеры поля */
   width: calc(8 * var(--cell) + 7 * var(--gap) + 24px);
   height: calc(8 * var(--cell) + 7 * var(--gap) + 24px);
 
@@ -65,12 +113,11 @@ body{
   user-select: none;
 }
 
-.cell{
+.cell {
   position: absolute;
   width: var(--cell);
   height: var(--cell);
 
-  /* позиционирование через CSS variables */
   --tx: 0px;
   --ty: 0px;
   --s: 1;
@@ -78,64 +125,278 @@ body{
 
   background: rgba(37, 37, 37, 0.10);
   border-radius: var(--radius);
-  border: 1px solid rgba(255,255,255,0.10);
+  border: 1px solid rgba(255, 255, 255, 0.10);
 
-  display:flex;
-  align-items:center;
-  justify-content:center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 26px;
   line-height: 1;
 
   cursor: pointer;
 
   transition:
-    transform var(--move-ms) cubic-bezier(.2,.8,.2,1),
-    opacity var(--pop-ms) ease,
-    box-shadow var(--ui-ms) ease,
-    border-color var(--ui-ms) ease;
+    transform calc(var(--move-ms) * var(--speed-mult)) cubic-bezier(.2, .8, .2, 1),
+    opacity calc(var(--pop-ms) * var(--speed-mult)) ease,
+    box-shadow calc(var(--ui-ms) * var(--speed-mult)) ease,
+    border-color calc(var(--ui-ms) * var(--speed-mult)) ease;
   will-change: transform, opacity;
 }
 
-.cell:hover{
-  border-color: rgba(255,255,255,0.18);
+.cell:hover {
+  border-color: rgba(255, 255, 255, 0.18);
 }
 
-.cell.selected{
+.cell.selected {
   box-shadow: 0 0 0 3px var(--select);
-  border-color: rgba(255,255,255,0.24);
+  border-color: rgba(255, 255, 255, 0.24);
 }
 
-.cell.newborn{
+.cell.newborn {
   opacity: 0;
 }
 
-.cell.removing{
+.cell.removing {
   opacity: 0;
   --s: 0.25;
 }
 
-.footer{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
+/* “Крыска пришла и съела” */
+.cell.eaten {
+  font-size: 0;
+}
+
+.cell.eaten::after {
+  content: var(--eater);
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--text);
+  animation: munch calc(320ms * var(--speed-mult)) ease-in-out infinite;
+}
+
+@keyframes munch {
+  0% {
+    transform: scale(0.9);
+  }
+
+  50% {
+    transform: scale(1.05);
+  }
+
+  100% {
+    transform: scale(0.95);
+  }
+}
+
+/* footer */
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 10px;
   padding: 10px 6px 0;
 }
 
-.btn{
-  background: rgba(255,255,255,0.08);
+.btn {
+  background: rgba(255, 255, 255, 0.08);
   color: var(--text);
   border: 1px solid var(--outline);
   padding: 10px 12px;
   border-radius: 14px;
-  cursor:pointer;
+  cursor: pointer;
   font-weight: 600;
 }
-.btn:hover{ background: rgba(255,255,255,0.12); }
 
-.status{
+.btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.status {
   color: var(--muted);
   font-size: 13px;
-  text-align:right;
+  text-align: right;
   min-height: 18px;
+}
+
+/* ===== Boosters pulse (без transform) ===== */
+@keyframes boosterPulse {
+  0% {
+    filter: brightness(1);
+    box-shadow: 0 0 0 rgba(255, 255, 255, 0);
+  }
+
+  35% {
+    filter: brightness(1.35);
+    box-shadow: 0 0 18px rgba(255, 255, 255, 0.28);
+  }
+
+  100% {
+    filter: brightness(1);
+    box-shadow: 0 0 0 rgba(255, 255, 255, 0);
+  }
+}
+
+.cell.pulse {
+  animation: boosterPulse 260ms ease-out 1;
+}
+
+/* ===== Screen shake ===== */
+@keyframes boardShake {
+  0% {
+    transform: translateX(0);
+  }
+
+  20% {
+    transform: translateX(-2px);
+  }
+
+  40% {
+    transform: translateX(2px);
+  }
+
+  60% {
+    transform: translateX(-1px);
+  }
+
+  80% {
+    transform: translateX(1px);
+  }
+
+  100% {
+    transform: translateX(0);
+  }
+}
+
+.board.shake {
+  animation: boardShake calc(var(--shake-ms) * var(--speed-mult)) ease-in-out 1;
+}
+
+/* ===== Settings panel ===== */
+.settings-panel {
+  padding: 14px;
+}
+
+.settings-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.settings-title {
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  text-transform: lowercase;
+}
+
+.settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.setting {
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 16px;
+  padding: 12px;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.setting-label {
+  font-weight: 700;
+  text-transform: lowercase;
+}
+
+.setting-value {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.setting-hint {
+  margin-top: 6px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 12px;
+}
+
+.slider {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.segmented {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.seg-btn {
+  flex: 1 1 auto;
+  height: 40px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.seg-btn.active {
+  background: rgba(0, 97, 223, 0.8);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+/* switch */
+.switch {
+  position: relative;
+  width: 52px;
+  height: 30px;
+  display: inline-block;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switch-ui {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.switch-ui::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.75);
+  transition: transform 160ms ease;
+}
+
+.switch input:checked+.switch-ui {
+  background: rgba(0, 96, 223, 0.80);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.switch input:checked+.switch-ui::after {
+  transform: translateX(22px);
 }

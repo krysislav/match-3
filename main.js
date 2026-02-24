@@ -10,12 +10,20 @@
         { id: 1, emoji: "🍏", name: "яблочко" },
         { id: 2, emoji: "🧀", name: "сырик" },
         { id: 3, emoji: "🍓", name: "ягодка" },
-        // { id: 4, emoji: "🥕", name: "морковка" },
-        // { id: 5, emoji: "🍄", name: "грибочек" },
-        // { id: 6, emoji: "🥒", name: "огурчик" },
-        // { id: 7, emoji: "🦐", name: "кривик" },
+        { id: 4, emoji: "🥕", name: "морковка" },
+        { id: 5, emoji: "🍄", name: "грибочек" },
+        { id: 6, emoji: "🥒", name: "огурчик" },
+        { id: 7, emoji: "🦐", name: "кривик" },
     ];
-    const TYPE_COUNT = TILES.length;
+
+    const difficultyLevels = [
+        "очень легко",
+        "легко",
+        "средне",
+        "сложно",
+        "очень сложно",
+    ];
+    const speedLevels = ["медленно", "нормально", "быстро"];
 
     /** @typedef {"none"|"lineH"|"lineV"|"bomb"|"color"} Power */
     /** @typedef {{id:number, type:number, power:Power}} Tile */
@@ -25,21 +33,65 @@
     const resetBtn = document.getElementById("resetBtn");
     const statusEl = document.getElementById("status");
 
+    const settingsBtn = document.getElementById("settingsBtn");
+    const settingsPanel = document.getElementById("settingsPanel");
+    const settingsCloseBtn = document.getElementById("settingsCloseBtn");
+
+    const difficultySlider = document.getElementById("difficultySlider");
+    const difficultyValue = document.getElementById("difficultyValue");
+    const difficultyTypes = document.getElementById("difficultyTypes");
+
+    const speedSlider = document.getElementById("speedSlider");
+    const speedValue = document.getElementById("speedValue");
+
+    const animalValue = document.getElementById("animalValue");
+    const segBtns = Array.from(document.querySelectorAll(".seg-btn"));
+
+    const shakeToggle = document.getElementById("shakeToggle");
+
     // ====== CSS метрики ======
-    const readPxVar = (name) => {
-        const v = getComputedStyle(document.documentElement)
+    const readPxVar = (name, fallback = 0) => {
+        const raw = getComputedStyle(document.documentElement)
             .getPropertyValue(name)
             .trim();
-        return Number(v.replace("px", "")) || 0;
+        if (!raw) return fallback;
+        const num = parseFloat(raw.replace("px", ""));
+        return Number.isFinite(num) ? num : fallback;
     };
-    const CELL = () => readPxVar("--cell");
-    const GAP = () => readPxVar("--gap");
+
+    const readTimeVar = (name, fallback = 0) => {
+        const raw = getComputedStyle(document.documentElement)
+            .getPropertyValue(name)
+            .trim();
+
+        if (!raw) return fallback;
+
+        if (raw.endsWith("ms")) {
+            return parseFloat(raw);
+        }
+
+        if (raw.endsWith("s")) {
+            return parseFloat(raw) * 1000;
+        }
+
+        // если вдруг просто число без единиц
+        const num = parseFloat(raw);
+        return Number.isFinite(num) ? num : fallback;
+    };
+
+    const CELL = () => readPxVar("--cell", 52);
+    const GAP = () => readPxVar("--gap", 10);
 
     // padding у .board = 12px в css — зафиксируем здесь так же
     const BOARD_PAD = 12;
 
-    const MOVE_MS = () => readPxVar("--move-ms") || 180;
-    const POP_MS = () => readPxVar("--pop-ms") || 160;
+    // скорость из настроек будет множителем к ожиданиям в JS (CSS отдельно через --speed-mult)
+    const speedMultFromSlider = (v) => {
+        // 0 медленно, 1 средне, 2 быстро
+        if (v === 0) return 1.55;
+        if (v === 2) return 0.75;
+        return 1.0;
+    };
 
     const posToPx = (x, y) => {
         const step = CELL() + GAP();
@@ -70,12 +122,130 @@
 
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+    const MOVE_MS = () => readTimeVar("--move-ms", 180) * timeScale;
+    const POP_MS = () => readTimeVar("--pop-ms", 160) * timeScale;
+
+    // ====== Settings storage ======
+    const SETTINGS_KEY = "zen_match3_settings_v1";
+
+    const DEFAULT_SETTINGS = {
+        difficulty: 2, // 0..4
+        speed: 1, // 0..2
+        animal: "🐭", // 🐭/🐹
+        shake: true,
+    };
+
+    const clampInt = (v, min, max, fallback) => {
+        const n = Number(v);
+        if (!Number.isFinite(n)) return fallback;
+        return Math.max(min, Math.min(max, Math.round(n)));
+    };
+
+    const loadSettings = () => {
+        try {
+            const raw = localStorage.getItem(SETTINGS_KEY);
+            if (!raw) return { ...DEFAULT_SETTINGS };
+            const s = JSON.parse(raw);
+            return {
+                difficulty: clampInt(
+                    s.difficulty,
+                    0,
+                    4,
+                    DEFAULT_SETTINGS.difficulty,
+                ),
+                speed: clampInt(s.speed, 0, 2, DEFAULT_SETTINGS.speed),
+                animal: s.animal === "🐹" ? "🐹" : "🐭",
+                shake: !!s.shake,
+            };
+        } catch {
+            return { ...DEFAULT_SETTINGS };
+        }
+    };
+
+    const saveSettings = (s) => {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+    };
+
+    let settings = loadSettings();
+
+    // ====== Derived settings ======
+    let typeCount = 4 + settings.difficulty; // 4..8
+    let timeScale = speedMultFromSlider(settings.speed);
+    let shakeEnabled = settings.shake;
+
+    const applySettingsToUI = () => {
+        difficultySlider.value = String(settings.difficulty);
+        difficultyValue.textContent = difficultyLevels[settings.difficulty];
+        difficultyTypes.textContent = String(4 + settings.difficulty);
+
+        speedSlider.value = String(settings.speed);
+        speedValue.textContent = speedLevels[settings.speed];
+
+        animalValue.textContent = settings.animal;
+
+        for (const b of segBtns) {
+            b.classList.toggle("active", b.dataset.animal === settings.animal);
+        }
+
+        shakeToggle.checked = !!settings.shake;
+    };
+
+    const applySettingsToRuntime = (regenBoardIfNeeded = true) => {
+        const newTypeCount = 4 + settings.difficulty;
+        const newTimeScale = speedMultFromSlider(settings.speed);
+        const newShake = !!settings.shake;
+
+        typeCount = newTypeCount;
+        timeScale = newTimeScale;
+        shakeEnabled = newShake;
+
+        // CSS: скорость и “кто ест”
+        document.documentElement.style.setProperty(
+            "--speed-mult",
+            String(newTimeScale),
+        );
+        document.documentElement.style.setProperty(
+            "--eater",
+            `"${settings.animal}"`,
+        );
+
+        if (regenBoardIfNeeded) {
+            generateBoard();
+            syncDom(false);
+            setStatus("настройки применены");
+        }
+    };
+
+    // ====== Pulse + Shake ======
+    const pulseKeys = (keys) => {
+        for (const k of keys) {
+            const { x, y } = parseKey(k);
+            const t = board[y][x];
+            if (!t) continue;
+
+            const el = tileEls.get(t.id);
+            if (!el) continue;
+
+            el.classList.remove("pulse");
+            void el.offsetWidth;
+            el.classList.add("pulse");
+        }
+    };
+
+    const shakeBoard = () => {
+        if (!shakeEnabled) return;
+        boardEl.classList.remove("shake");
+        void boardEl.offsetWidth;
+        boardEl.classList.add("shake");
+    };
+
     // ====== Состояние ======
     /** @type {(null|Tile)[][]} */
     let board = [];
     /** @type {{x:number,y:number}|null} */
     let selected = null;
     let isResolving = false;
+    let isSettingsOpen = false;
 
     let nextTileId = 1;
 
@@ -237,9 +407,9 @@
         for (let y = 0; y < H; y++) {
             for (let x = 0; x < W; x++) {
                 let tries = 0;
-                let type = randInt(TYPE_COUNT);
+                let type = randInt(typeCount);
                 while (wouldFormMatchAt(x, y, type) && tries < 50) {
-                    type = randInt(TYPE_COUNT);
+                    type = randInt(typeCount);
                     tries++;
                 }
                 board[y][x] = makeTile(type, "none");
@@ -389,7 +559,7 @@
         for (let y = 0; y < H; y++) {
             for (let x = 0; x < W; x++) {
                 if (board[y][x] === null)
-                    board[y][x] = makeTile(randInt(TYPE_COUNT), "none");
+                    board[y][x] = makeTile(randInt(typeCount), "none");
             }
         }
     };
@@ -404,7 +574,17 @@
             tiles.push(t);
         }
 
-        // ставим класс removing
+        // 1) показываем грызунишку на всех удаляемых клетках
+        for (const t of tiles) {
+            const el = tileEls.get(t.id);
+            if (el) el.classList.add("eaten");
+        }
+
+        // пауза, чтобы мозг успел увидеть “кто съел”
+        const eatMs = Math.min(700, Math.max(220, Math.round(POP_MS() * 0.45)));
+        await sleep(eatMs);
+
+        // 2) запускаем fade/scale
         for (const t of tiles) {
             const el = tileEls.get(t.id);
             if (el) el.classList.add("removing");
@@ -412,8 +592,7 @@
 
         await sleep(POP_MS());
 
-        // чистим DOM-элементы удалённых (после того как board уже обнулится)
-        // (обнуление делаем снаружи)
+        // 3) убираем DOM-элементы удалённых
         for (const t of tiles) removeTileEl(t.id);
     };
 
@@ -472,8 +651,9 @@
 
         const placeAtKey = (k, entry) => {
             const { x, y } = parseKey(k);
+            const baseType = getType(x, y); // какой тип был в клетке до удаления
             const power = entry.maxLen >= 5 ? "color" : "bomb";
-            placements.push({ x, y, power });
+            placements.push({ x, y, power, type: baseType });
             reservedKeys.add(k);
             for (const gi of entry.H) usedGroups.add(gi);
             for (const gi of entry.V) usedGroups.add(gi);
@@ -521,6 +701,7 @@
     ) => {
         const queue = [];
         const processed = new Set();
+        const activated = new Set();
 
         const isProtected = (k) => protectedKeys && protectedKeys.has(k);
 
@@ -546,6 +727,7 @@
 
             const { x, y } = parseKey(key);
             const p = getPower(x, y);
+            activated.add(key);
 
             if (p === "lineH") {
                 for (let xx = 0; xx < W; xx++) addKey(cellKey(xx, y));
@@ -569,6 +751,8 @@
                 }
             }
         }
+
+        if (activated.size > 0) pulseKeys(activated);
     };
 
     // ====== Resolve с анимациями ======
@@ -611,19 +795,23 @@
                 if (!place) continue;
 
                 reserved.add(cellKey(place.x, place.y));
-                placements.push({ x: place.x, y: place.y, power });
+                placements.push({
+                    x: place.x,
+                    y: place.y,
+                    power,
+                    type: g.type,
+                });
             }
 
-            const protectedKeys = new Set(placements.map(p => cellKey(p.x, p.y)));
+            const protectedKeys = new Set(
+                placements.map((p) => cellKey(p.x, p.y)),
+            );
 
             preferredOnce = null;
 
             const matches = new Set();
             for (const g of groups)
                 for (const c of g.cells) matches.add(cellKey(c.x, c.y));
-
-            // места рождения бустеров не удаляем
-            for (const p of placements) matches.delete(cellKey(p.x, p.y));
 
             // colorTargets по типу группы, где color матчился
             const colorTargets = new Map();
@@ -637,7 +825,11 @@
             }
 
             // расширяем матч бустерами (которые попали в матч)
-            expandMatchesByActivatedBoosters(matches, colorTargets, protectedKeys);
+            expandMatchesByActivatedBoosters(
+                matches,
+                colorTargets,
+                protectedKeys,
+            );
 
             totalRemoved += matches.size;
             steps++;
@@ -648,17 +840,24 @@
             // 2) удаляем в модели
             removeMatches(matches);
 
-            // 3) применяем рождения бустеров
+            // 3) спавним новые бустеры на месте рождения
             for (const p of placements) {
-                const cell = getCell(p.x, p.y);
-                if (cell) cell.power = p.power;
+                // ВАЖНО: после removeMatches здесь должно быть null (или может быть не null,
+                // если клетку не удалили по какой-то причине) — мы жёстко перезапишем.
+                board[p.y][p.x] = makeTile(
+                    p.type ?? randInt(TYPE_COUNT),
+                    p.power,
+                );
             }
 
             // 4) падение + досыпка + анимация “переезда”
             collapse();
             refill();
             await syncDom(true);
+            await sleep(120);
         }
+
+        if (totalRemoved >= 16) shakeBoard();
 
         return { totalRemoved, steps };
     };
@@ -684,7 +883,24 @@
             matches.add(cellKey(posColor.x, posColor.y)); // сам color исчезает
         }
 
+        // ==== ВАЖНО: добавляем цепную реакцию бустеров ====
+
+        const colorTargets = new Map();
+
+        // если среди удаляемых есть color (второй color), пусть он чистит всё
+        for (const key of matches) {
+            const { x, y } = parseKey(key);
+            if (getPower(x, y) === "color") {
+                colorTargets.set(key, otherType);
+            }
+        }
+
+        // запускаем расширение бустерами
+        expandMatchesByActivatedBoosters(matches, colorTargets, new Set());
+
         const removed = matches.size;
+
+        // ==== дальше всё как было ====
 
         await animateRemoval(matches);
         removeMatches(matches);
@@ -741,7 +957,7 @@
 
     // ====== Ввод ======
     async function onCellClick(e) {
-        if (isResolving) return;
+        if (isResolving || isSettingsOpen) return;
 
         const el = /** @type {HTMLElement} */ (e.currentTarget);
         const x = Number(el.dataset.x);
@@ -836,9 +1052,76 @@
         isResolving = false;
     }
 
+    // ====== Settings UI ======
+    const openSettings = () => {
+        if (isResolving) return;
+
+        isSettingsOpen = true;
+        boardEl.hidden = true;
+        settingsPanel.hidden = false;
+        settingsBtn.style.visibility = "hidden";
+        resetBtn.style.visibility = "hidden";
+
+        setStatus("");
+        applySettingsToUI();
+    };
+
+    const closeSettings = () => {
+        let regenBoard = false;
+        let oldDifficulty = settings?.difficulty;
+
+        // сохраняем текущее UI -> settings
+        settings = {
+            difficulty: clampInt(
+                difficultySlider.value,
+                0,
+                4,
+                DEFAULT_SETTINGS.difficulty,
+            ),
+            speed: clampInt(speedSlider.value, 0, 2, DEFAULT_SETTINGS.speed),
+            animal: settings.animal === "🐹" ? "🐹" : "🐭",
+            shake: !!shakeToggle.checked,
+        };
+
+        if (settings.difficulty !== oldDifficulty) regenBoard = true;
+
+        saveSettings(settings);
+        applySettingsToRuntime(regenBoard);
+
+        settingsPanel.hidden = true;
+        boardEl.hidden = false;
+        isSettingsOpen = false;
+        settingsBtn.style.visibility = "visible";
+        resetBtn.style.visibility = "visible";
+    };
+
+    settingsBtn.addEventListener("click", openSettings);
+    settingsCloseBtn.addEventListener("click", closeSettings);
+
+    difficultySlider.addEventListener("input", () => {
+        const v = clampInt(difficultySlider.value, 0, 4, 2);
+        difficultyValue.textContent = difficultyLevels[v];
+        difficultyTypes.textContent = String(4 + v);
+    });
+
+    speedSlider.addEventListener("input", () => {
+        const v = clampInt(speedSlider.value, 0, 2, 1);
+        speedValue.textContent = speedLevels[v];
+    });
+
+    segBtns.forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const a = btn.dataset.animal === "🐹" ? "🐹" : "🐭";
+            settings.animal = a;
+            animalValue.textContent = a;
+            for (const b of segBtns)
+                b.classList.toggle("active", b.dataset.animal === a);
+        });
+    });
+
     // ====== Кнопки ======
     resetBtn.addEventListener("click", async () => {
-        if (isResolving) return;
+        if (isResolving || isSettingsOpen) return;
         isResolving = true;
 
         const r = reshuffle();
@@ -851,7 +1134,9 @@
 
     // ====== Старт ======
     (async () => {
+        applySettingsToRuntime(false);
         generateBoard();
         await syncDom(false);
+        setStatus("готово");
     })();
 })();
