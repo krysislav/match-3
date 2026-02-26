@@ -31,6 +31,7 @@
     // ====== DOM ======
     const boardEl = document.getElementById("board");
     const resetBtn = document.getElementById("resetBtn");
+    const hintBtn = document.getElementById("hintBtn");
     const statusEl = document.getElementById("status");
 
     const settingsBtn = document.getElementById("settingsBtn");
@@ -433,6 +434,81 @@
         board[y2][x2] = tmp;
     };
 
+    async function trySwapCells(prev, next) {
+        if (!prev || !next) return;
+
+        if (!isNeighbor(prev, next)) {
+            selected = next;
+            await syncDom(false);
+            return;
+        }
+
+        // === SWAP + анимация движения ===
+        isResolving = true;
+        selected = null;
+
+        swapInBoard(prev.x, prev.y, next.x, next.y);
+        await syncDom(true); // плавный swap
+
+        const matches = findMatches();
+
+        // 1) обычный матч
+        if (matches.size > 0) {
+            const r = await resolveBoardAnimated(next);
+
+            if (!hasMoves()) {
+                const sh = reshuffle();
+                await syncDom(true);
+                setStatus(
+                    `съели: ${r.totalRemoved} (каскады: ${r.steps}) • перемешали (${sh.attempt})`,
+                );
+            } else {
+                setStatus(`съели: ${r.totalRemoved} (каскады: ${r.steps})`);
+            }
+
+            isResolving = false;
+            return;
+        }
+
+        // 2) матча нет — но color можно активировать
+        const p1 = getPower(prev.x, prev.y);
+        const p2 = getPower(next.x, next.y);
+
+        if (p1 === "color" || p2 === "color") {
+            let posColor, posOther;
+            if (getPower(prev.x, prev.y) === "color") {
+                posColor = prev;
+                posOther = next;
+            } else {
+                posColor = next;
+                posOther = prev;
+            }
+
+            const a = await activateColorBySwapAnimated(posColor, posOther);
+
+            if (!hasMoves()) {
+                const sh = reshuffle();
+                await syncDom(true);
+                setStatus(
+                    `color: -${a.removed}${a.extraRemoved ? ` +${a.extraRemoved}` : ""} (каскады: ${a.cascades}) • перемешали (${sh.attempt})`,
+                );
+            } else {
+                setStatus(
+                    `color: -${a.removed}${a.extraRemoved ? ` +${a.extraRemoved}` : ""} (каскады: ${a.cascades})`,
+                );
+            }
+
+            isResolving = false;
+            return;
+        }
+
+        // 3) матча нет и color нет — откат swap
+        swapInBoard(prev.x, prev.y, next.x, next.y);
+        await syncDom(true);
+        setStatus("нет совпадений");
+        isResolving = false;
+    }
+
     // ====== Поиск матчей ======
     const findMatches = () => {
         const matched = new Set();
@@ -757,6 +833,8 @@
 
     // ====== Resolve с анимациями ======
     const resolveBoardAnimated = async (preferredDest = null) => {
+        clearHint();
+
         let totalRemoved = 0;
         let steps = 0;
 
@@ -933,6 +1011,26 @@
         return false;
     };
 
+    const findAnyMove = () => {
+        for (let y = H - 1; y >= 0; y--) {
+            for (let x = W - 1; x >= 0; x--) {
+                if (x + 1 < W) {
+                    swapInBoard(x, y, x + 1, y);
+                    const ok = findMatches().size > 0;
+                    swapInBoard(x, y, x + 1, y);
+                    if (ok) return { from: { x, y }, to: { x: x + 1, y } };
+                }
+                if (y + 1 < H) {
+                    swapInBoard(x, y, x, y + 1);
+                    const ok = findMatches().size > 0;
+                    swapInBoard(x, y, x, y + 1);
+                    if (ok) return { from: { x, y }, to: { x, y: y + 1 } };
+                }
+            }
+        }
+        return null;
+    };
+
     const reshuffle = () => {
         const bag = [];
         for (let y = 0; y < H; y++)
@@ -980,76 +1078,7 @@
         const prev = selected;
         const next = { x, y };
 
-        if (!isNeighbor(prev, next)) {
-            selected = next;
-            await syncDom(false);
-            return;
-        }
-
-        // === SWAP + анимация движения ===
-        isResolving = true;
-        selected = null;
-
-        swapInBoard(prev.x, prev.y, next.x, next.y);
-        await syncDom(true); // плавный swap
-
-        const matches = findMatches();
-
-        // 1) обычный матч
-        if (matches.size > 0) {
-            const r = await resolveBoardAnimated(next);
-
-            if (!hasMoves()) {
-                const sh = reshuffle();
-                await syncDom(true);
-                setStatus(
-                    `съели: ${r.totalRemoved} (каскады: ${r.steps}) • перемешали (${sh.attempt})`,
-                );
-            } else {
-                setStatus(`съели: ${r.totalRemoved} (каскады: ${r.steps})`);
-            }
-
-            isResolving = false;
-            return;
-        }
-
-        // 2) матча нет — но color можно активировать
-        const p1 = getPower(prev.x, prev.y);
-        const p2 = getPower(next.x, next.y);
-
-        if (p1 === "color" || p2 === "color") {
-            let posColor, posOther;
-            if (getPower(prev.x, prev.y) === "color") {
-                posColor = prev;
-                posOther = next;
-            } else {
-                posColor = next;
-                posOther = prev;
-            }
-
-            const a = await activateColorBySwapAnimated(posColor, posOther);
-
-            if (!hasMoves()) {
-                const sh = reshuffle();
-                await syncDom(true);
-                setStatus(
-                    `color: -${a.removed}${a.extraRemoved ? ` +${a.extraRemoved}` : ""} (каскады: ${a.cascades}) • перемешали (${sh.attempt})`,
-                );
-            } else {
-                setStatus(
-                    `color: -${a.removed}${a.extraRemoved ? ` +${a.extraRemoved}` : ""} (каскады: ${a.cascades})`,
-                );
-            }
-
-            isResolving = false;
-            return;
-        }
-
-        // 3) матча нет и color нет — откат swap
-        swapInBoard(prev.x, prev.y, next.x, next.y);
-        await syncDom(true);
-        setStatus("нет совпадений");
-        isResolving = false;
+        trySwapCells(prev, next);
     }
 
     // ====== Settings UI ======
@@ -1061,6 +1090,7 @@
         settingsPanel.hidden = false;
         settingsBtn.style.visibility = "hidden";
         resetBtn.style.visibility = "hidden";
+        hintBtn.style.visibility = "hidden";
 
         setStatus("");
         applySettingsToUI();
@@ -1093,6 +1123,7 @@
         isSettingsOpen = false;
         settingsBtn.style.visibility = "visible";
         resetBtn.style.visibility = "visible";
+        hintBtn.style.visibility = "visible";
     };
 
     settingsBtn.addEventListener("click", openSettings);
@@ -1131,6 +1162,183 @@
 
         isResolving = false;
     });
+
+    hintBtn.addEventListener("click", async () => {
+        const move = findAnyMove();
+        if (move) showHint(move);
+    });
+
+    // ====== Swipe ======
+    const SWIPE_THRESHOLD_PX = 14; // можно 12–20
+    let swipeActive = false;
+    let swipeStart = null; // {x,y, clientX, clientY, pointerId}
+
+    function getCellFromPoint(clientX, clientY) {
+        const el = document.elementFromPoint(clientX, clientY);
+        const cell = el && el.closest && el.closest(".cell");
+        if (!cell) return null;
+        // предполагаю, что у .cell есть data-x/data-y или что-то подобное
+        const x = Number(cell.dataset.x);
+        const y = Number(cell.dataset.y);
+        if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+        return { x, y };
+    }
+
+    function neighborByDirection(start, dx, dy) {
+        const ax = Math.abs(dx);
+        const ay = Math.abs(dy);
+        if (ax < SWIPE_THRESHOLD_PX && ay < SWIPE_THRESHOLD_PX) return null;
+
+        let nx = start.x;
+        let ny = start.y;
+
+        if (ax >= ay) {
+            nx += dx > 0 ? 1 : -1;
+        } else {
+            ny += dy > 0 ? 1 : -1;
+        }
+
+        return { x: nx, y: ny };
+    }
+
+    boardEl.addEventListener("pointerdown", (e) => {
+        if (e.pointerType !== "touch") return;
+        if (isResolving || isSettingsOpen) return;
+
+        const start = getCellFromPoint(e.clientX, e.clientY);
+        if (!start) return;
+
+        swipeActive = true;
+        swipeStart = {
+            ...start,
+            clientX: e.clientX,
+            clientY: e.clientY,
+            pointerId: e.pointerId,
+        };
+
+        boardEl.setPointerCapture(e.pointerId);
+        e.preventDefault();
+    });
+
+    boardEl.addEventListener("pointermove", (e) => {
+        if (e.pointerType !== "touch") return;
+        if (!swipeActive || !swipeStart) return;
+        if (e.pointerId !== swipeStart.pointerId) return;
+
+        const dx = e.clientX - swipeStart.clientX;
+        const dy = e.clientY - swipeStart.clientY;
+
+        const target = neighborByDirection(
+            { x: swipeStart.x, y: swipeStart.y },
+            dx,
+            dy,
+        );
+        if (!target) return;
+
+        // ограничим границы 0..7 (или твой размер)
+        if (target.x < 0 || target.x >= 8 || target.y < 0 || target.y >= 8) {
+            swipeActive = false;
+            return;
+        }
+
+        // Один свайп = один swap
+        swipeActive = false;
+
+        trySwapCells({ x: swipeStart.x, y: swipeStart.y }, target);
+
+        e.preventDefault();
+    });
+
+    function endSwipe(e) {
+        if (!swipeActive) return;
+        swipeActive = false;
+        swipeStart = null;
+    }
+
+    boardEl.addEventListener("pointerup", endSwipe);
+    boardEl.addEventListener("pointercancel", endSwipe);
+
+    // ====== Размеры поля ======
+    function updateBoardScale() {
+        const topbarEl = document.querySelector(".topbar");
+        const footerEl = document.querySelector(".footer");
+        const wrapEl = document.querySelector(".board-wrap");
+        if (!topbarEl || !footerEl || !wrapEl) return;
+
+        // 1) доступная ширина внутри wrap (минус паддинги)
+        const wrapRect = wrapEl.getBoundingClientRect();
+        const wrapStyle = getComputedStyle(wrapEl);
+        const wrapPadX =
+            parseFloat(wrapStyle.paddingLeft || "0") +
+            parseFloat(wrapStyle.paddingRight || "0");
+        const wrapPadY =
+            parseFloat(wrapStyle.paddingTop || "0") +
+            parseFloat(wrapStyle.paddingBottom || "0");
+
+        const availW = Math.max(0, wrapRect.width - wrapPadX);
+
+        // 2) доступная высота между низом header и верхом footer (минус паддинги wrap)
+        const topbarRect = topbarEl.getBoundingClientRect();
+        const footerRect = footerEl.getBoundingClientRect();
+
+        let availH = footerRect.top - topbarRect.bottom - wrapPadY;
+
+        // Фолбэк, если раскладка “разъехалась” и расчёт дал ерунду
+        if (!Number.isFinite(availH) || availH <= 0) {
+            availH =
+                window.innerHeight - topbarRect.height - footerRect.height - 24;
+        }
+
+        // 3) поле квадратное и максимально большое в доступном месте
+        const outerLimit = Math.floor(Math.min(availW, availH) - 2); // маленький отступ, чтобы не упираться
+
+        // ВАЖНО: .board в CSS = 8*cell + 7*gap + 2*BOARD_PAD
+        const gap = GAP();
+        const boardPad = BOARD_PAD; // 12 (у тебя уже так)
+        const innerForCells = outerLimit - 7 * gap - 2 * boardPad;
+
+        const cellSize = Math.floor(innerForCells / 8);
+
+        // защита от совсем мелких экранов
+        const safeCell = Math.max(24, cellSize);
+
+        document.documentElement.style.setProperty("--cell", `${safeCell}px`);
+    }
+
+    window.addEventListener("resize", updateBoardScale);
+    window.addEventListener("orientationchange", updateBoardScale);
+
+    updateBoardScale();
+
+    // ====== Подсказка ======
+    let hintTimer = null;
+
+    const clearHint = () => {
+        document
+            .querySelectorAll(".cell.hint")
+            .forEach((el) => el.classList.remove("hint"));
+        if (hintTimer) {
+            clearTimeout(hintTimer);
+            hintTimer = null;
+        }
+    };
+
+    const showHint = (move, ms = Math.floor(1000 * timeScale)) => {
+        if (!move) return;
+        clearHint();
+
+        const a = document.querySelector(
+            `.cell[data-x="${move.from.x}"][data-y="${move.from.y}"]`,
+        );
+        const b = document.querySelector(
+            `.cell[data-x="${move.to.x}"][data-y="${move.to.y}"]`,
+        );
+
+        if (a) a.classList.add("hint");
+        if (b) b.classList.add("hint");
+
+        hintTimer = setTimeout(clearHint, ms);
+    };
 
     // ====== Старт ======
     (async () => {
