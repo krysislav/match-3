@@ -265,14 +265,14 @@
     });
 
     const tileSuffix = (power) => {
-        if (power === "lineH") return "—";
-        if (power === "lineV") return "|";
-        if (power === "bomb") return "✦";
-        if (power === "color") return "◉";
+        if (power === "lineH") return "↔️";
+        if (power === "lineV") return "↕️";
+        if (power === "bomb") return "💣";
+        if (power === "color") return "🌈";
         return "";
     };
 
-    const ensureTileEl = (tile) => {
+    const ensureTileEl = (tile, initialX, initialY) => {
         let el = tileEls.get(tile.id);
         if (el) return el;
 
@@ -280,6 +280,16 @@
         el.type = "button";
         el.className = "cell newborn";
         el.dataset.tileId = String(tile.id);
+
+        // Устанавливаем позицию ДО добавления в DOM, чтобы браузер
+        // не видел перехода от CSS-дефолта (0,0) к реальной позиции.
+        // Без этого transition анимирует сдвиг из (0,0) в финальную точку,
+        // что особенно заметно для тайла (0,0) — он «доплывает» на 12px.
+        if (initialX !== undefined && initialY !== undefined) {
+            const { tx, ty } = posToPx(initialX, initialY);
+            el.style.setProperty("--tx", `${tx}px`);
+            el.style.setProperty("--ty", `${ty}px`);
+        }
 
         el.addEventListener("click", onCellClick);
 
@@ -301,11 +311,12 @@
 
     const paintTileEl = (tile, el) => {
         const meta = TILES[tile.type];
-        el.textContent = meta.emoji + tileSuffix(tile.power);
+        el.textContent = meta.emoji; // + tileSuffix(tile.power);
         el.setAttribute(
             "aria-label",
             `${meta.name}${tile.power !== "none" ? " (усилитель)" : ""}`,
         );
+        el.dataset.badge = tileSuffix(tile.power);
     };
 
     const placeTileEl = (tile, el, x, y) => {
@@ -331,7 +342,7 @@
                 const t = board[y][x];
                 if (!t) continue;
                 alive.add(t.id);
-                const el = ensureTileEl(t);
+                const el = ensureTileEl(t, x, y);
                 paintTileEl(t, el);
                 placeTileEl(t, el, x, y);
             }
@@ -447,30 +458,7 @@
         isResolving = true;
         selected = null;
 
-        swapInBoard(prev.x, prev.y, next.x, next.y);
-        await syncDom(true); // плавный swap
-
-        const matches = findMatches();
-
-        // 1) обычный матч
-        if (matches.size > 0) {
-            const r = await resolveBoardAnimated(next);
-
-            if (!hasMoves()) {
-                const sh = reshuffle();
-                await syncDom(true);
-                setStatus(
-                    `съели: ${r.totalRemoved} (каскады: ${r.steps}) • перемешали (${sh.attempt})`,
-                );
-            } else {
-                setStatus(`съели: ${r.totalRemoved} (каскады: ${r.steps})`);
-            }
-
-            isResolving = false;
-            return;
-        }
-
-        // 2) матча нет — но color можно активировать
+        // 1) матча нет — но color можно активировать
         const p1 = getPower(prev.x, prev.y);
         const p2 = getPower(next.x, next.y);
 
@@ -496,6 +484,29 @@
                 setStatus(
                     `color: -${a.removed}${a.extraRemoved ? ` +${a.extraRemoved}` : ""} (каскады: ${a.cascades})`,
                 );
+            }
+
+            isResolving = false;
+            return;
+        }
+
+        swapInBoard(prev.x, prev.y, next.x, next.y);
+        await syncDom(true); // плавный swap
+
+        const matches = findMatches();
+
+        // 2) обычный матч
+        if (matches.size > 0) {
+            const r = await resolveBoardAnimated(next);
+
+            if (!hasMoves()) {
+                const sh = reshuffle();
+                await syncDom(true);
+                setStatus(
+                    `съели: ${r.totalRemoved} (каскады: ${r.steps}) • перемешали (${sh.attempt})`,
+                );
+            } else {
+                setStatus(`съели: ${r.totalRemoved} (каскады: ${r.steps})`);
             }
 
             isResolving = false;
@@ -816,8 +827,10 @@
                     }
                 }
             } else if (p === "color") {
-                const targetType = colorTargets.get(key);
-                if (targetType === undefined || targetType === null) continue;
+                let targetType = colorTargets.get(key);
+                if (targetType === undefined || targetType === null)
+                    targetType = randInt(typeCount);
+console.log(targetType);
 
                 for (let yy = 0; yy < H; yy++) {
                     for (let xx = 0; xx < W; xx++) {
@@ -929,13 +942,12 @@
             }
 
             // 4) падение + досыпка + анимация “переезда”
+            if (totalRemoved >= 16) shakeBoard();
             collapse();
             refill();
             await syncDom(true);
             await sleep(120);
         }
-
-        if (totalRemoved >= 16) shakeBoard();
 
         return { totalRemoved, steps };
     };
