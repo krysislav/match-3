@@ -308,6 +308,7 @@ body {
   padding: 14px;
   overflow: auto;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;   /* перебиваем touch-action: none из .board */
 }
 
 .settings-top {

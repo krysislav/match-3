@@ -172,6 +172,7 @@
         // Вызывается один раз при первом жесте пользователя.
         // Создаёт AudioContext и запускает загрузку буферов.
         const unlock = () => {
+console.log('AudioContext unlocked');
             if (!AudioCtx) return;
             if (!ctx) ctx = new AudioCtx();
             if (ctx.state === "suspended") ctx.resume();
@@ -210,11 +211,6 @@
             set volume(v) { _volume = Math.max(0, Math.min(1, Number(v) || 0)); },
         };
     })();
-
-    // Разблокируем AudioContext при первом жесте (политика autoplay браузеров).
-    const _unlockAudio = () => SoundSystem.unlock();
-    document.addEventListener("pointerdown", _unlockAudio, { once: true, capture: true });
-    document.addEventListener("keydown",     _unlockAudio, { once: true, capture: true });
 
     const MOVE_MS = () => readTimeVar("--move-ms", 180) * timeScale;
     const POP_MS = () => readTimeVar("--pop-ms", 160) * timeScale;
@@ -585,13 +581,13 @@
             if (!hasMoves()) {
                 const sh = reshuffle();
                 await syncDom(true);
-                setStatus(
-                    `color: -${a.removed}${a.extraRemoved ? ` +${a.extraRemoved}` : ""} (каскады: ${a.cascades}) • перемешали (${sh.attempt})`,
-                );
+                // setStatus(
+                //     `color: -${a.removed}${a.extraRemoved ? ` +${a.extraRemoved}` : ""} (каскады: ${a.cascades}) • перемешали (${sh.attempt})`,
+                // );
             } else {
-                setStatus(
-                    `color: -${a.removed}${a.extraRemoved ? ` +${a.extraRemoved}` : ""} (каскады: ${a.cascades})`,
-                );
+                // setStatus(
+                //     `color: -${a.removed}${a.extraRemoved ? ` +${a.extraRemoved}` : ""} (каскады: ${a.cascades})`,
+                // );
             }
 
             isResolving = false;
@@ -610,11 +606,11 @@
             if (!hasMoves()) {
                 const sh = reshuffle();
                 await syncDom(true);
-                setStatus(
-                    `съели: ${r.totalRemoved} (каскады: ${r.steps}) • перемешали (${sh.attempt})`,
-                );
+                // setStatus(
+                //     `съели: ${r.totalRemoved} (каскады: ${r.steps}) • перемешали (${sh.attempt})`,
+                // );
             } else {
-                setStatus(`съели: ${r.totalRemoved} (каскады: ${r.steps})`);
+                // setStatus(`съели: ${r.totalRemoved} (каскады: ${r.steps})`);
             }
 
             isResolving = false;
@@ -1187,6 +1183,8 @@
     async function onCellClick(e) {
         if (isResolving || isSettingsOpen) return;
 
+        // Разблокируем AudioContext при первом клике/тапе.
+        SoundSystem.unlock();
         const el = /** @type {HTMLElement} */ (e.currentTarget);
         const x = Number(el.dataset.x);
         const y = Number(el.dataset.y);
@@ -1219,6 +1217,7 @@
         boardEl.hidden = true;
         settingsPanel.hidden = false;
         settingsBtn.style.visibility = "hidden";
+        settingsCloseBtn.style.visibility = "visible";
         resetBtn.style.visibility = "hidden";
         hintBtn.style.visibility = "hidden";
 
@@ -1254,6 +1253,7 @@
         boardEl.hidden = false;
         isSettingsOpen = false;
         settingsBtn.style.visibility = "visible";
+        settingsCloseBtn.style.visibility = "hidden";
         resetBtn.style.visibility = "visible";
         hintBtn.style.visibility = "visible";
     };
@@ -1294,7 +1294,8 @@
         const r = reshuffle();
         selected = null;
         await syncDom(true);
-        setStatus(`перемешали (${r.attempt})`);
+        // setStatus(`перемешали (${r.attempt})`);
+        setStatus(`перемешали`);
 
         isResolving = false;
     });
@@ -1340,6 +1341,10 @@
     boardEl.addEventListener("pointerdown", (e) => {
         if (e.pointerType !== "touch") return;
         if (isResolving || isSettingsOpen) return;
+
+        // Разблокируем AudioContext здесь — до preventDefault,
+        // пока Firefox ещё считает событие «user activation».
+        SoundSystem.unlock();
 
         const start = getCellFromPoint(e.clientX, e.clientY);
         if (!start) return;

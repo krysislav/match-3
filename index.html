@@ -18,7 +18,10 @@
         <div class="title-hint">тихо двигаем еду под сериал</div>
       </div>
 
-      <button id="settingsBtn" class="icon-btn" type="button" aria-label="Настройки">⚙️</button>
+      <div style="position:relative;width:42px;height:42px;flex-shrink:0">
+        <button id="settingsBtn" class="icon-btn" type="button" aria-label="Настройки">⚙️</button>
+        <button id="settingsCloseBtn" class="icon-btn" type="button" aria-label="Закрыть" style="visibility:hidden;position:absolute;inset:0">✕</button>
+      </div>
     </header>
 
     <section class="board-wrap">
@@ -29,7 +32,6 @@
       <div id="settingsPanel" class="board settings-panel" aria-label="Настройки" hidden>
         <div class="settings-top">
           <div class="settings-title">настройки</div>
-          <button id="settingsCloseBtn" class="icon-btn" type="button" aria-label="Закрыть">✕</button>
         </div>
 
         <div class="settings-list">
