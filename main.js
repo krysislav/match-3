@@ -153,6 +153,7 @@
             line: "./sound/line.wav",
             bomb: "./sound/bomb.wav",
             multi: "./sound/multi.wav",
+            total: "./sound/total.wav",
         };
 
         const _fetchAll = async () => {
@@ -617,6 +618,7 @@
             // Ульта: два color
             if (p1 === "color" && p2 === "color") {
                 // полная аннигиляция всех тайлов на доске
+                SoundSystem.play("total");
                 await totalAnnihilation();
                 isResolving = false;
                 return;
