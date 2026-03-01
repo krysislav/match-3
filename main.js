@@ -150,8 +150,8 @@
         const SOUND_FILES = {
             error: "./sound/error.wav",
             match: "./sound/match.wav",
-            line:  "./sound/line.wav",
-            bomb:  "./sound/bomb.wav",
+            line: "./sound/line.wav",
+            bomb: "./sound/bomb.wav",
             multi: "./sound/multi.wav",
         };
 
@@ -192,7 +192,9 @@
                 gain.gain.value = _volume;
                 src.connect(gain);
                 gain.connect(ctx.destination);
-                src.onended = () => { if (_currentSrc === src) _currentSrc = null; };
+                src.onended = () => {
+                    if (_currentSrc === src) _currentSrc = null;
+                };
                 src.start();
                 _currentSrc = src;
             } catch {
@@ -203,10 +205,18 @@
         return {
             unlock,
             play,
-            get enabled() { return _enabled; },
-            set enabled(v) { _enabled = !!v; },
-            get volume() { return _volume; },
-            set volume(v) { _volume = Math.max(0, Math.min(1, Number(v) || 0)); },
+            get enabled() {
+                return _enabled;
+            },
+            set enabled(v) {
+                _enabled = !!v;
+            },
+            get volume() {
+                return _volume;
+            },
+            set volume(v) {
+                _volume = Math.max(0, Math.min(1, Number(v) || 0));
+            },
         };
     })();
 
@@ -246,10 +256,15 @@
                 speed: clampInt(s.speed, 0, 2, DEFAULT_SETTINGS.speed),
                 animal: s.animal === "🐹" ? "🐹" : "🐭",
                 shake: !!s.shake,
-                soundEnabled: s.soundEnabled !== undefined ? !!s.soundEnabled : DEFAULT_SETTINGS.soundEnabled,
+                soundEnabled:
+                    s.soundEnabled !== undefined
+                        ? !!s.soundEnabled
+                        : DEFAULT_SETTINGS.soundEnabled,
                 soundVolume: (() => {
                     const v = parseFloat(s.soundVolume);
-                    return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : DEFAULT_SETTINGS.soundVolume;
+                    return Number.isFinite(v)
+                        ? Math.max(0, Math.min(1, v))
+                        : DEFAULT_SETTINGS.soundVolume;
                 })(),
             };
         } catch {
@@ -463,9 +478,23 @@
     const makeStatus = (removed) => {
         const few = ["ам", "ням", "грызь", "кусь"];
         const many = ["ам-ам", "ням-ням", "грызь-грызь", "кусь-кусь"];
-        const alot = ["мм вкусно 😋", "ом ном ном", "славная грызля", "вкуснотища"];
-        const epic = ["обжорство 😋", "чуть не лопнули 😅", "бездонное пузико", "праздник живота 🎉"];
-        const wtf = ["да сколько ж в тя влезает?!", "щёки не лопнули? 😲", "запей хотя бы 🤦‍♂️"];
+        const alot = [
+            "мм вкусно 😋",
+            "ом ном ном",
+            "славная грызля",
+            "вкуснотища",
+        ];
+        const epic = [
+            "обжорство 😋",
+            "чуть не лопнули 😅",
+            "бездонное пузико",
+            "праздник живота 🎉",
+        ];
+        const wtf = [
+            "да сколько ж в тя влезает?!",
+            "щёки не лопнули? 😲",
+            "запей хотя бы 🤦‍♂️",
+        ];
 
         let status;
         if (removed >= 96) status = "еда на планете кончилась 🌍🤷‍♂️";
@@ -475,9 +504,9 @@
         else if (removed > 6) status = randomChoice(many);
         else if (removed >= 3) status = randomChoice(few);
         else status = "ничего не поели 🥺";
-        
+
         setStatus(status);
-    }
+    };
 
     // ====== Генерация без стартовых матчей ======
     const wouldFormMatchAt = (x, y, type) => {
@@ -589,6 +618,7 @@
             if (p1 === "color" && p2 === "color") {
                 // полная аннигиляция всех тайлов на доске
                 await totalAnnihilation();
+                isResolving = false;
                 return;
             }
 
@@ -1058,10 +1088,8 @@
             steps++;
 
             // 1) анимируем “поп”
-            if (matches.size <= 6)
-                SoundSystem.play("match");
-            else
-                SoundSystem.play("multi");
+            if (matches.size <= 6) SoundSystem.play("match");
+            else SoundSystem.play("multi");
             await animateRemoval(matches);
 
             // 2) удаляем в модели
@@ -1535,12 +1563,12 @@
         });
     }
 
-window.addEventListener("contextmenu", (e) => {
-    board[0][0] = makeTile(0, "color");
-    board[0][1] = makeTile(0, "color");
-    syncDom(true);
-    e.preventDefault();
-});
+    window.addEventListener("contextmenu", (e) => {
+        board[0][0] = makeTile(0, "color");
+        board[0][1] = makeTile(0, "color");
+        syncDom(true);
+        e.preventDefault();
+    });
 
     // ====== Старт ======
     (async () => {
