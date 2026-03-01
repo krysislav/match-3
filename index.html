@@ -73,6 +73,26 @@
             </div>
             <div class="setting-hint">мягко трясём поле при больших комбо</div>
           </div>
+
+          <div class="setting">
+            <div class="setting-row">
+              <div class="setting-label">звук</div>
+              <label class="switch">
+                <input id="soundToggle" type="checkbox" />
+                <span class="switch-ui"></span>
+              </label>
+            </div>
+            <div class="setting-hint">звуковые эффекты</div>
+          </div>
+
+          <div class="setting">
+            <div class="setting-row">
+              <div class="setting-label">громкость</div>
+              <div id="soundVolumeValue" class="setting-value">60%</div>
+            </div>
+            <input id="soundVolumeSlider" class="slider" type="range" min="0" max="100" step="5" value="60" />
+            <div class="setting-hint">громкость эффектов</div>
+          </div>
         </div>
       </div>
     </section>

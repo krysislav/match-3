@@ -1,4 +1,4 @@
-(() => {
+﻿(() => {
     "use strict";
 
     // ====== Настройки ======
@@ -49,6 +49,10 @@
     const segBtns = Array.from(document.querySelectorAll(".seg-btn"));
 
     const shakeToggle = document.getElementById("shakeToggle");
+
+    const soundToggle = document.getElementById("soundToggle");
+    const soundVolumeSlider = document.getElementById("soundVolumeSlider");
+    const soundVolumeValue = document.getElementById("soundVolumeValue");
 
     // ====== CSS метрики ======
     const readPxVar = (name, fallback = 0) => {
@@ -123,6 +127,95 @@
 
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+    // ====== Sound system ======
+    const SoundSystem = (() => {
+        const AudioCtx =
+            typeof AudioContext !== "undefined"
+                ? AudioContext
+                : typeof webkitAudioContext !== "undefined"
+                  ? webkitAudioContext
+                  : null;
+
+        // ctx создаётся лениво — только при первом жесте,
+        // иначе браузер заблокирует его как autoplay.
+        let ctx = null;
+        const buffers = new Map();
+        let _enabled = true;
+        let _volume = 0.6;
+        let _fetchStarted = false;
+        let _currentSrc = null; // активный AudioBufferSourceNode
+
+        const SOUND_FILES = {
+            error: "./sound/error.wav",
+            match: "./sound/match.wav",
+            line:  "./sound/line.wav",
+            bomb:  "./sound/bomb.wav",
+            multi: "./sound/multi.wav",
+        };
+
+        const _fetchAll = async () => {
+            if (!ctx || _fetchStarted) return;
+            _fetchStarted = true;
+            for (const [name, url] of Object.entries(SOUND_FILES)) {
+                try {
+                    const resp = await fetch(url);
+                    if (!resp.ok) continue;
+                    const ab = await resp.arrayBuffer();
+                    const decoded = await ctx.decodeAudioData(ab);
+                    buffers.set(name, decoded);
+                } catch {
+                    // файл ещё не добавлен — тихо пропускаем
+                }
+            }
+        };
+
+        // Вызывается один раз при первом жесте пользователя.
+        // Создаёт AudioContext и запускает загрузку буферов.
+        const unlock = () => {
+            if (!AudioCtx) return;
+            if (!ctx) ctx = new AudioCtx();
+            if (ctx.state === "suspended") ctx.resume();
+            _fetchAll();
+        };
+
+        const play = (name) => {
+            if (!_enabled || !ctx || !buffers.has(name)) return;
+            if (ctx.state === "suspended") ctx.resume();
+            try {
+                // останавливаем предыдущий звук, если он ещё играет
+                if (_currentSrc) {
+                    try { _currentSrc.stop(); } catch { /* уже остановлен */ }
+                    _currentSrc = null;
+                }
+                const src = ctx.createBufferSource();
+                src.buffer = buffers.get(name);
+                const gain = ctx.createGain();
+                gain.gain.value = _volume;
+                src.connect(gain);
+                gain.connect(ctx.destination);
+                src.onended = () => { if (_currentSrc === src) _currentSrc = null; };
+                src.start();
+                _currentSrc = src;
+            } catch {
+                // AudioContext мог быть закрыт
+            }
+        };
+
+        return {
+            unlock,
+            play,
+            get enabled() { return _enabled; },
+            set enabled(v) { _enabled = !!v; },
+            get volume() { return _volume; },
+            set volume(v) { _volume = Math.max(0, Math.min(1, Number(v) || 0)); },
+        };
+    })();
+
+    // Разблокируем AudioContext при первом жесте (политика autoplay браузеров).
+    const _unlockAudio = () => SoundSystem.unlock();
+    document.addEventListener("pointerdown", _unlockAudio, { once: true, capture: true });
+    document.addEventListener("keydown",     _unlockAudio, { once: true, capture: true });
+
     const MOVE_MS = () => readTimeVar("--move-ms", 180) * timeScale;
     const POP_MS = () => readTimeVar("--pop-ms", 160) * timeScale;
 
@@ -134,6 +227,8 @@
         speed: 1, // 0..2
         animal: "🐭", // 🐭/🐹
         shake: true,
+        soundEnabled: true,
+        soundVolume: 0.6, // 0..1
     };
 
     const clampInt = (v, min, max, fallback) => {
@@ -157,6 +252,11 @@
                 speed: clampInt(s.speed, 0, 2, DEFAULT_SETTINGS.speed),
                 animal: s.animal === "🐹" ? "🐹" : "🐭",
                 shake: !!s.shake,
+                soundEnabled: s.soundEnabled !== undefined ? !!s.soundEnabled : DEFAULT_SETTINGS.soundEnabled,
+                soundVolume: (() => {
+                    const v = parseFloat(s.soundVolume);
+                    return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : DEFAULT_SETTINGS.soundVolume;
+                })(),
             };
         } catch {
             return { ...DEFAULT_SETTINGS };
@@ -189,6 +289,11 @@
         }
 
         shakeToggle.checked = !!settings.shake;
+
+        soundToggle.checked = !!settings.soundEnabled;
+        const pct = Math.round((settings.soundVolume ?? 0.6) * 100);
+        soundVolumeSlider.value = String(pct);
+        soundVolumeValue.textContent = pct + "%";
     };
 
     const applySettingsToRuntime = (regenBoardIfNeeded = true) => {
@@ -199,6 +304,9 @@
         typeCount = newTypeCount;
         timeScale = newTimeScale;
         shakeEnabled = newShake;
+
+        SoundSystem.enabled = !!settings.soundEnabled;
+        SoundSystem.volume = settings.soundVolume ?? 0.6;
 
         // CSS: скорость и “кто ест”
         document.documentElement.style.setProperty(
@@ -514,6 +622,7 @@
         }
 
         // 3) матча нет и color нет — откат swap
+        SoundSystem.play("error");
         swapInBoard(prev.x, prev.y, next.x, next.y);
         await syncDom(true);
         setStatus("нет совпадений");
@@ -817,20 +926,23 @@
             activated.add(key);
 
             if (p === "lineH") {
+                SoundSystem.play("line");
                 for (let xx = 0; xx < W; xx++) addKey(cellKey(xx, y));
             } else if (p === "lineV") {
+                SoundSystem.play("line");
                 for (let yy = 0; yy < H; yy++) addKey(cellKey(x, yy));
             } else if (p === "bomb") {
+                SoundSystem.play("bomb");
                 for (let yy = y - 1; yy <= y + 1; yy++) {
                     for (let xx = x - 1; xx <= x + 1; xx++) {
                         if (inBounds(xx, yy)) addKey(cellKey(xx, yy));
                     }
                 }
             } else if (p === "color") {
+                SoundSystem.play("multi");
                 let targetType = colorTargets.get(key);
                 if (targetType === undefined || targetType === null)
                     targetType = randInt(typeCount);
-console.log(targetType);
 
                 for (let yy = 0; yy < H; yy++) {
                     for (let xx = 0; xx < W; xx++) {
@@ -926,6 +1038,10 @@ console.log(targetType);
             steps++;
 
             // 1) анимируем “поп”
+            if (matches.size <= 6)
+                SoundSystem.play("match");
+            else
+                SoundSystem.play("multi");
             await animateRemoval(matches);
 
             // 2) удаляем в модели
@@ -957,6 +1073,8 @@ console.log(targetType);
         const otherType = getType(posOther.x, posOther.y);
         if (otherType === -1)
             return { removed: 0, cascades: 0, extraRemoved: 0 };
+
+        SoundSystem.play("multi");
 
         const matches = new Set();
         const otherPower = getPower(posOther.x, posOther.y);
@@ -1123,6 +1241,8 @@ console.log(targetType);
             speed: clampInt(speedSlider.value, 0, 2, DEFAULT_SETTINGS.speed),
             animal: settings.animal === "🐹" ? "🐹" : "🐭",
             shake: !!shakeToggle.checked,
+            soundEnabled: !!soundToggle.checked,
+            soundVolume: clampInt(soundVolumeSlider.value, 0, 100, 60) / 100,
         };
 
         if (settings.difficulty !== oldDifficulty) regenBoard = true;
@@ -1150,6 +1270,10 @@ console.log(targetType);
     speedSlider.addEventListener("input", () => {
         const v = clampInt(speedSlider.value, 0, 2, 1);
         speedValue.textContent = speedLevels[v];
+    });
+
+    soundVolumeSlider.addEventListener("input", () => {
+        soundVolumeValue.textContent = soundVolumeSlider.value + "%";
     });
 
     segBtns.forEach((btn) => {
