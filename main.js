@@ -108,6 +108,8 @@
 
     // ====== Утилиты ======
     const randInt = (max) => Math.floor(Math.random() * max);
+    const randomChoice = (arr) => arr[randInt(arr.length)];
+
     const setStatus = (msg) => (statusEl.textContent = msg || "");
 
     const inBounds = (x, y) => x >= 0 && x < W && y >= 0 && y < H;
@@ -172,7 +174,6 @@
         // Вызывается один раз при первом жесте пользователя.
         // Создаёт AudioContext и запускает загрузку буферов.
         const unlock = () => {
-console.log('AudioContext unlocked');
             if (!AudioCtx) return;
             if (!ctx) ctx = new AudioCtx();
             if (ctx.state === "suspended") ctx.resume();
@@ -182,12 +183,9 @@ console.log('AudioContext unlocked');
         const play = (name) => {
             if (!_enabled || !ctx || !buffers.has(name)) return;
             if (ctx.state === "suspended") ctx.resume();
+            // если предыдущий звук ещё играет — новый отменяем
+            if (_currentSrc) return;
             try {
-                // останавливаем предыдущий звук, если он ещё играет
-                if (_currentSrc) {
-                    try { _currentSrc.stop(); } catch { /* уже остановлен */ }
-                    _currentSrc = null;
-                }
                 const src = ctx.createBufferSource();
                 src.buffer = buffers.get(name);
                 const gain = ctx.createGain();
@@ -461,6 +459,26 @@ console.log('AudioContext unlocked');
         await sleep(MOVE_MS());
     };
 
+    // ====== Статусы ======
+    const makeStatus = (removed) => {
+        const few = ["ам", "ням", "грызь", "кусь"];
+        const many = ["ам-ам", "ням-ням", "грызь-грызь", "кусь-кусь"];
+        const alot = ["мм вкусно 😋", "ом ном ном", "славная грызля", "вкуснотища"];
+        const epic = ["обжорство 😋", "чуть не лопнули 😅", "бездонное пузико", "праздник живота 🎉"];
+        const wtf = ["да сколько ж в тя влезает?!", "щёки не лопнули? 😲", "запей хотя бы 🤦‍♂️"];
+
+        let status;
+        if (removed >= 96) status = "еда на планете кончилась 🌍🤷‍♂️";
+        else if (removed >= 48) status = randomChoice(wtf);
+        else if (removed >= 24) status = randomChoice(epic);
+        else if (removed >= 12) status = randomChoice(alot);
+        else if (removed > 6) status = randomChoice(many);
+        else if (removed >= 3) status = randomChoice(few);
+        else status = "ничего не поели 🥺";
+        
+        setStatus(status);
+    }
+
     // ====== Генерация без стартовых матчей ======
     const wouldFormMatchAt = (x, y, type) => {
         const left1 = x - 1,
@@ -567,6 +585,13 @@ console.log('AudioContext unlocked');
         const p2 = getPower(next.x, next.y);
 
         if (p1 === "color" || p2 === "color") {
+            // Ульта: два color
+            if (p1 === "color" && p2 === "color") {
+                // полная аннигиляция всех тайлов на доске
+                await totalAnnihilation();
+                return;
+            }
+
             let posColor, posOther;
             if (getPower(prev.x, prev.y) === "color") {
                 posColor = prev;
@@ -898,7 +923,6 @@ console.log('AudioContext unlocked');
         const isProtected = (k) => protectedKeys && protectedKeys.has(k);
 
         for (const key of matches) {
-            if (isProtected(key)) continue;
             const { x, y } = parseKey(key);
             if (getPower(x, y) !== "none") queue.push(key);
         }
@@ -1061,10 +1085,12 @@ console.log('AudioContext unlocked');
             await sleep(120);
         }
 
+        makeStatus(totalRemoved);
+
         return { totalRemoved, steps };
     };
 
-    // ====== Color без match (самый мощный) ======
+    // ====== Color без match ======
     const activateColorBySwapAnimated = async (posColor, posOther) => {
         const otherType = getType(posOther.x, posOther.y);
         if (otherType === -1)
@@ -1105,7 +1131,6 @@ console.log('AudioContext unlocked');
         const removed = matches.size;
 
         // ==== дальше всё как было ====
-
         await animateRemoval(matches);
         removeMatches(matches);
         collapse();
@@ -1115,6 +1140,26 @@ console.log('AudioContext unlocked');
         const r = await resolveBoardAnimated(null);
         return { removed, cascades: r.steps, extraRemoved: r.totalRemoved };
     };
+
+    async function totalAnnihilation() {
+        const matches = new Set();
+        for (let y = 0; y < H; y++) {
+            for (let x = 0; x < W; x++) {
+                matches.add(cellKey(x, y));
+            }
+        }
+        setStatus("всё сожрано!");
+        // ==== дальше всё как было ====
+        await animateRemoval(matches);
+        removeMatches(matches);
+        collapse();
+        refill();
+        await syncDom(true);
+
+        const removed = W * H;
+        const r = await resolveBoardAnimated(null);
+        return { removed, cascades: r.steps, extraRemoved: r.totalRemoved };
+    }
 
     // ====== hasMoves / reshuffle ======
     const hasMoves = () => {
@@ -1489,6 +1534,13 @@ console.log('AudioContext unlocked');
             });
         });
     }
+
+window.addEventListener("contextmenu", (e) => {
+    board[0][0] = makeTile(0, "color");
+    board[0][1] = makeTile(0, "color");
+    syncDom(true);
+    e.preventDefault();
+});
 
     // ====== Старт ======
     (async () => {

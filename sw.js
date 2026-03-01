@@ -1,4 +1,4 @@
-const CACHE_NAME = "zen-match3-v1.0.2";
+const CACHE_NAME = "zen-match3-v1.0.3";
 
 const FILES_TO_CACHE = [
   "./",
