@@ -658,7 +658,7 @@
 
         // 2) обычный матч
         if (matches.size > 0) {
-            const r = await resolveBoardAnimated(next);
+            const r = await resolveBoardAnimated([prev, next]);
 
             if (!hasMoves()) {
                 const sh = reshuffle();
@@ -846,15 +846,15 @@
     };
 
     // ====== Усилители (создание + активация) ======
-    const choosePlacementForGroup = (group, preferredCell, reservedKeys) => {
-        const prefKey = preferredCell
-            ? cellKey(preferredCell.x, preferredCell.y)
-            : null;
-
-        if (prefKey) {
-            for (const c of group.cells) {
-                if (c.x === preferredCell.x && c.y === preferredCell.y) {
-                    if (!reservedKeys.has(prefKey)) return { x: c.x, y: c.y };
+    const choosePlacementForGroup = (group, preferredCells, reservedKeys) => {
+        if (preferredCells) {
+            for (const preferredCell of preferredCells) {
+                if (!preferredCell) continue;
+                const prefKey = cellKey(preferredCell.x, preferredCell.y);
+                for (const c of group.cells) {
+                    if (c.x === preferredCell.x && c.y === preferredCell.y) {
+                        if (!reservedKeys.has(prefKey)) return { x: c.x, y: c.y };
+                    }
                 }
             }
         }
@@ -872,7 +872,7 @@
 
     const findIntersectionPlacements = (
         groups,
-        preferredCell,
+        preferredCells,
         reservedKeys,
     ) => {
         // cellKey -> {H:Set(groupIdx), V:Set(groupIdx), maxLen:number}
@@ -908,11 +908,15 @@
             for (const gi of entry.V) usedGroups.add(gi);
         };
 
-        if (preferredCell) {
-            const pk = cellKey(preferredCell.x, preferredCell.y);
-            const entry = map.get(pk);
-            if (entry && isIntersection(entry) && !reservedKeys.has(pk)) {
-                placeAtKey(pk, entry);
+        if (preferredCells) {
+            for (const preferredCell of preferredCells) {
+                if (!preferredCell) continue;
+                const pk = cellKey(preferredCell.x, preferredCell.y);
+                const entry = map.get(pk);
+                if (entry && isIntersection(entry) && !reservedKeys.has(pk)) {
+                    placeAtKey(pk, entry);
+                    break;
+                }
             }
         }
 
@@ -1009,13 +1013,13 @@
     };
 
     // ====== Resolve с анимациями ======
-    const resolveBoardAnimated = async (preferredDest = null) => {
+    const resolveBoardAnimated = async (preferredDests = null) => {
         clearHint();
 
         let totalRemoved = 0;
         let steps = 0;
 
-        let preferredOnce = preferredDest;
+        let preferredOnce = preferredDests;
 
         while (true) {
             const groups = findMatchGroups();
@@ -1565,12 +1569,13 @@
         });
     }
 
-    window.addEventListener("contextmenu", (e) => {
-        board[0][0] = makeTile(0, "color");
-        board[0][1] = makeTile(0, "color");
-        syncDom(true);
-        e.preventDefault();
-    });
+    // debug
+    // window.addEventListener("contextmenu", (e) => {
+    //     board[0][0] = makeTile(0, "color");
+    //     board[0][1] = makeTile(0, "color");
+    //     syncDom(true);
+    //     e.preventDefault();
+    // });
 
     // ====== Старт ======
     (async () => {
