@@ -43,11 +43,13 @@ body {
   /* mobile-first: приложение = экран */
   padding: 0;
   display: block;
+  overflow: hidden;
+  overscroll-behavior: none; /* запрещаем pull-to-refresh и overscroll */
 }
 
 .app {
   width: 100%;
-  min-height: 100dvh;
+  height: 100dvh;
 
   background: linear-gradient(180deg, var(--panel) 0%, var(--panel2) 100%);
   border: 0;
