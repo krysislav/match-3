@@ -1739,13 +1739,51 @@
 
     // ====== PWA: Service Worker ======
     if ("serviceWorker" in navigator) {
+        let swReg = null;
+
         window.addEventListener("load", () => {
             navigator.serviceWorker
                 .register("./sw.js", { updateViaCache: "none" })
+                .then((reg) => { swReg = reg; })
                 .catch(() => {
                     // zen: без паники
                 });
         });
+
+        // Когда новый SW активируется и захватывает контроль — перезагружаем страницу,
+        // чтобы получить свежие файлы из нового кэша.
+        navigator.serviceWorker.addEventListener("controllerchange", () => {
+            window.location.reload();
+        });
+
+        // Проверяем обновление при старте (после регистрации).
+        window.addEventListener("load", () => {
+            navigator.serviceWorker.ready.then((reg) => reg.update());
+        }, { once: true });
+
+        // Кнопка ручной проверки обновлений в настройках.
+        const updateBtn = document.getElementById("updateBtn");
+        const updateHint = document.getElementById("updateHint");
+        if (updateBtn) {
+            updateBtn.addEventListener("click", () => {
+                if (!swReg) return;
+                updateBtn.disabled = true;
+                updateBtn.textContent = "...";
+                swReg.update().then(() => {
+                    // Если новый SW не найден — controllerchange не сработает,
+                    // поэтому восстанавливаем кнопку через секунду.
+                    setTimeout(() => {
+                        updateBtn.disabled = false;
+                        updateBtn.textContent = "check";
+                        updateHint.textContent = "already up to date";
+                    }, 1000);
+                }).catch(() => {
+                    updateBtn.disabled = false;
+                    updateBtn.textContent = "check";
+                    updateHint.textContent = "could not check — no connection?";
+                });
+            });
+        }
     }
 
     // debug
@@ -1763,6 +1801,6 @@
             generateBoard();
         }
         await syncDom(false);
-        setStatus("готово");
+        setStatus("ready");
     })();
 })();
