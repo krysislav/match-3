@@ -1766,10 +1766,9 @@
         const updateHint = document.getElementById("updateHint");
         if (updateBtn) {
             updateBtn.addEventListener("click", () => {
-                if (!swReg) return;
                 updateBtn.disabled = true;
                 updateBtn.textContent = "...";
-                swReg.update().then(() => {
+                navigator.serviceWorker.ready.then((reg) => reg.update()).then(() => {
                     // Если новый SW не найден — controllerchange не сработает,
                     // поэтому восстанавливаем кнопку через секунду.
                     setTimeout(() => {

@@ -1,4 +1,4 @@
-const CACHE_NAME = "zen-match3-v1.2.6";
+const CACHE_NAME = "zen-match3-v1.2.7";
 
 const FILES_TO_CACHE = [
   "./",
@@ -29,9 +29,15 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
+  // Network-first: всегда берём свежее с сервера.
+  // Кэш используется только при отсутствии сети (офлайн).
   event.respondWith(
-    caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
-    })
+    fetch(event.request)
+      .then((response) => {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
