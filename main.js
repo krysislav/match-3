@@ -1746,12 +1746,6 @@
                     // zen: без паники
                 });
         });
-
-        // Когда новый SW активируется и захватывает контроль — перезагружаем страницу,
-        // чтобы получить свежие файлы из нового кэша.
-        navigator.serviceWorker.addEventListener("controllerchange", () => {
-            window.location.reload();
-        });
     }
 
     // debug
@@ -1769,6 +1763,6 @@
             generateBoard();
         }
         await syncDom(false);
-        setStatus("ready");
+        setStatus("готово");
     })();
 })();
