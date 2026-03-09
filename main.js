@@ -6,24 +6,24 @@
     const H = 8;
 
     const TILES = [
-        { id: 0, emoji: "🌰", name: "орешек" },
-        { id: 1, emoji: "🍏", name: "яблочко" },
-        { id: 2, emoji: "🧀", name: "сырик" },
-        { id: 3, emoji: "🍓", name: "ягодка" },
-        { id: 4, emoji: "🥕", name: "морковка" },
-        { id: 5, emoji: "🍄", name: "грибочек" },
-        { id: 6, emoji: "🥒", name: "огурчик" },
-        { id: 7, emoji: "🦐", name: "кривик" },
+        { id: 0, emoji: "🌰", name: "nut" },
+        { id: 1, emoji: "🍏", name: "apple" },
+        { id: 2, emoji: "🧀", name: "cheese" },
+        { id: 3, emoji: "🍓", name: "strawberry" },
+        { id: 4, emoji: "🥕", name: "carrot" },
+        { id: 5, emoji: "🍄", name: "mushroom" },
+        { id: 6, emoji: "🥒", name: "cucumber" },
+        { id: 7, emoji: "🦐", name: "shrimp" },
     ];
 
     const difficultyLevels = [
-        "очень легко",
-        "легко",
-        "средне",
-        "сложно",
-        "очень сложно",
+        "very easy",
+        "easy",
+        "medium",
+        "hard",
+        "very hard",
     ];
-    const speedLevels = ["медленно", "нормально", "быстро"];
+    const speedLevels = ["slow", "normal", "fast"];
 
     /** @typedef {"none"|"lineH"|"lineV"|"bomb"|"color"} Power */
     /** @typedef {{id:number, type:number, power:Power}} Tile */
@@ -32,6 +32,10 @@
     const boardEl = document.getElementById("board");
     const resetBtn = document.getElementById("resetBtn");
     const hintBtn = document.getElementById("hintBtn");
+    const newGameBtn = document.getElementById("newGameBtn");
+    const confirmDialog = document.getElementById("confirmDialog");
+    const confirmOk = document.getElementById("confirmOk");
+    const confirmNo = document.getElementById("confirmNo");
     const statusEl = document.getElementById("status");
 
     const settingsBtn = document.getElementById("settingsBtn");
@@ -46,11 +50,17 @@
     const speedValue = document.getElementById("speedValue");
 
     const animalValue = document.getElementById("animalValue");
-    const segBtns = Array.from(document.querySelectorAll(".seg-btn"));
+    const segBtns = Array.from(
+        document.querySelectorAll(".seg-btn[data-animal]"),
+    );
+
+    const displayModeValue = document.getElementById("displayModeValue");
+    const displayModeBtns = Array.from(
+        document.querySelectorAll(".seg-btn[data-display]"),
+    );
 
     const shakeToggle = document.getElementById("shakeToggle");
 
-    const soundToggle = document.getElementById("soundToggle");
     const soundVolumeSlider = document.getElementById("soundVolumeSlider");
     const soundVolumeValue = document.getElementById("soundVolumeValue");
 
@@ -226,14 +236,16 @@
 
     // ====== Settings storage ======
     const SETTINGS_KEY = "zen_match3_settings_v1";
+    const BOARD_SAVE_KEY = "zen_match3_board_v1";
+    const SCORE_SAVE_KEY = "zen_match3_score_v1";
 
     const DEFAULT_SETTINGS = {
         difficulty: 2, // 0..4
         speed: 1, // 0..2
         animal: "🐭", // 🐭/🐹
-        shake: true,
-        soundEnabled: true,
         soundVolume: 0.6, // 0..1
+        displayMode: "zen", // zen/status/score
+        shake: false, // тряска при больших матчах
     };
 
     const clampInt = (v, min, max, fallback) => {
@@ -257,16 +269,15 @@
                 speed: clampInt(s.speed, 0, 2, DEFAULT_SETTINGS.speed),
                 animal: s.animal === "🐹" ? "🐹" : "🐭",
                 shake: !!s.shake,
-                soundEnabled:
-                    s.soundEnabled !== undefined
-                        ? !!s.soundEnabled
-                        : DEFAULT_SETTINGS.soundEnabled,
                 soundVolume: (() => {
                     const v = parseFloat(s.soundVolume);
                     return Number.isFinite(v)
                         ? Math.max(0, Math.min(1, v))
                         : DEFAULT_SETTINGS.soundVolume;
                 })(),
+                displayMode: ["zen", "status", "score"].includes(s.displayMode)
+                    ? s.displayMode
+                    : DEFAULT_SETTINGS.displayMode,
             };
         } catch {
             return { ...DEFAULT_SETTINGS };
@@ -275,6 +286,78 @@
 
     const saveSettings = (s) => {
         localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+    };
+
+    const saveScore = () => {
+        try {
+            localStorage.setItem(SCORE_SAVE_KEY, String(score));
+        } catch {
+            // тихо пропускаем
+        }
+    };
+
+    const loadScore = () => {
+        try {
+            const raw = localStorage.getItem(SCORE_SAVE_KEY);
+            const n = Number(raw);
+            return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0;
+        } catch {
+            return 0;
+        }
+    };
+
+    const saveBoard = () => {
+        try {
+            const data = {
+                board: board.map((row) =>
+                    row.map((t) =>
+                        t ? { type: t.type, power: t.power } : null,
+                    ),
+                ),
+            };
+            localStorage.setItem(BOARD_SAVE_KEY, JSON.stringify(data));
+        } catch {
+            // localStorage недоступен — тихо пропускаем
+        }
+    };
+
+    const tryRestoreBoard = () => {
+        try {
+            const raw = localStorage.getItem(BOARD_SAVE_KEY);
+            if (!raw) return false;
+            const data = JSON.parse(raw);
+            if (!Array.isArray(data.board) || data.board.length !== H)
+                return false;
+            for (let y = 0; y < H; y++) {
+                if (!Array.isArray(data.board[y]) || data.board[y].length !== W)
+                    return false;
+            }
+
+            for (const id of Array.from(tileEls.keys())) removeTileEl(id);
+
+            const validPowers = ["none", "lineH", "lineV", "bomb", "color"];
+            board = data.board.map((row) =>
+                row.map((cell) => {
+                    if (!cell) return null;
+                    const type = Number(cell.type);
+                    const power = validPowers.includes(cell.power)
+                        ? cell.power
+                        : "none";
+                    if (
+                        !Number.isFinite(type) ||
+                        type < 0 ||
+                        type >= TILES.length
+                    )
+                        return null;
+                    return makeTile(type, power);
+                }),
+            );
+
+            selected = null;
+            return true;
+        } catch {
+            return false;
+        }
     };
 
     let settings = loadSettings();
@@ -300,10 +383,17 @@
 
         shakeToggle.checked = !!settings.shake;
 
-        soundToggle.checked = !!settings.soundEnabled;
         const pct = Math.round((settings.soundVolume ?? 0.6) * 100);
         soundVolumeSlider.value = String(pct);
         soundVolumeValue.textContent = pct + "%";
+
+        displayModeValue.textContent = settings.displayMode;
+        for (const b of displayModeBtns) {
+            b.classList.toggle(
+                "active",
+                b.dataset.display === settings.displayMode,
+            );
+        }
     };
 
     const applySettingsToRuntime = (regenBoardIfNeeded = true) => {
@@ -315,8 +405,8 @@
         timeScale = newTimeScale;
         shakeEnabled = newShake;
 
-        SoundSystem.enabled = !!settings.soundEnabled;
         SoundSystem.volume = settings.soundVolume ?? 0.6;
+        SoundSystem.enabled = SoundSystem.volume > 0;
 
         // CSS: скорость и “кто ест”
         document.documentElement.style.setProperty(
@@ -365,6 +455,7 @@
     let selected = null;
     let isResolving = false;
     let isSettingsOpen = false;
+    let score = loadScore();
 
     let nextTileId = 1;
 
@@ -477,34 +568,54 @@
 
     // ====== Статусы ======
     const makeStatus = (removed) => {
-        const few = ["ам", "ням", "грызь", "кусь"];
-        const many = ["ам-ам", "ням-ням", "грызь-грызь", "кусь-кусь"];
+        const few = ["yum", "nom", "chew", "munch", "crunch"];
+        const many = ["yum-yum", "nom-nom", "chewww", "munch-munch"];
         const alot = [
-            "мм вкусно 😋",
-            "ом ном ном",
-            "славная грызля",
-            "вкуснотища",
+            "mm tasty 😋",
+            "om nom nom",
+            "delicious munch",
+            "tasty treats",
         ];
         const epic = [
-            "обжорство 😋",
-            "чуть не лопнули 😅",
-            "бездонное пузико",
-            "праздник живота 🎉",
+            "epic feast 😋",
+            "almost burst 😅",
+            "bottomless belly",
+            "what a hoover!",
         ];
         const wtf = [
-            "да сколько ж в тя влезает?!",
-            "щёки не лопнули? 😲",
-            "запей хотя бы 🤦‍♂️",
+            "how much can you eat?!",
+            "cheeks didn't burst? 😲",
+            "drink something at least 🤦‍♂️",
         ];
 
         let status;
-        if (removed >= 96) status = "еда на планете кончилась 🌍🤷‍♂️";
-        else if (removed >= 48) status = randomChoice(wtf);
-        else if (removed >= 24) status = randomChoice(epic);
-        else if (removed >= 12) status = randomChoice(alot);
-        else if (removed > 6) status = randomChoice(many);
-        else if (removed >= 3) status = randomChoice(few);
-        else status = "ничего не поели 🥺";
+        let multiplier = 1;
+        if (removed >= 96) {
+            status = "food on the planet is gone 🌍🤷‍♂️";
+            multiplier = 1.5;
+        } else if (removed >= 48) {
+            status = randomChoice(wtf);
+            multiplier = 1.4;
+        } else if (removed >= 24) {
+            status = randomChoice(epic);
+            multiplier = 1.3;
+        } else if (removed >= 12) {
+            status = randomChoice(alot);
+            multiplier = 1.2;
+        } else if (removed > 6) {
+            status = randomChoice(many);
+            multiplier = 1.1;
+        } else if (removed >= 3) {
+            status = randomChoice(few);
+            multiplier = 1.0;
+        } else status = "nothing eaten 🥺";
+
+        const added = Math.ceil(removed * multiplier);
+        score += added;
+        saveScore();
+
+        if (settings.displayMode === "score") status = `${score} (+${added})`;
+        else if (settings.displayMode === "zen") status = ``;
 
         setStatus(status);
     };
@@ -581,7 +692,8 @@
         }
 
         selected = null;
-        setStatus("готово");
+        setStatus("ready");
+        saveBoard();
     };
 
     // ====== Соседство / swap ======
@@ -620,6 +732,7 @@
                 // полная аннигиляция всех тайлов на доске
                 SoundSystem.play("total");
                 await totalAnnihilation();
+                saveBoard();
                 isResolving = false;
                 return;
             }
@@ -639,14 +752,15 @@
                 const sh = reshuffle();
                 await syncDom(true);
                 // setStatus(
-                //     `color: -${a.removed}${a.extraRemoved ? ` +${a.extraRemoved}` : ""} (каскады: ${a.cascades}) • перемешали (${sh.attempt})`,
+                //     `color: -${a.removed}${a.extraRemoved ? ` +${a.extraRemoved}` : ""} (cascades: ${a.cascades}) • reshuffled (${sh.attempt})`,
                 // );
             } else {
                 // setStatus(
-                //     `color: -${a.removed}${a.extraRemoved ? ` +${a.extraRemoved}` : ""} (каскады: ${a.cascades})`,
+                //     `color: -${a.removed}${a.extraRemoved ? ` +${a.extraRemoved}` : ""} (cascades: ${a.cascades})`,
                 // );
             }
 
+            saveBoard();
             isResolving = false;
             return;
         }
@@ -664,12 +778,13 @@
                 const sh = reshuffle();
                 await syncDom(true);
                 // setStatus(
-                //     `съели: ${r.totalRemoved} (каскады: ${r.steps}) • перемешали (${sh.attempt})`,
+                //     `eaten: ${r.totalRemoved} (cascades: ${r.steps}) • reshuffled (${sh.attempt})`,
                 // );
             } else {
-                // setStatus(`съели: ${r.totalRemoved} (каскады: ${r.steps})`);
+                // setStatus(`eaten: ${r.totalRemoved} (cascades: ${r.steps})`);
             }
 
+            saveBoard();
             isResolving = false;
             return;
         }
@@ -678,7 +793,7 @@
         SoundSystem.play("error");
         swapInBoard(prev.x, prev.y, next.x, next.y);
         await syncDom(true);
-        setStatus("нет совпадений");
+        setStatus("no matches");
         isResolving = false;
     }
 
@@ -853,7 +968,8 @@
                 const prefKey = cellKey(preferredCell.x, preferredCell.y);
                 for (const c of group.cells) {
                     if (c.x === preferredCell.x && c.y === preferredCell.y) {
-                        if (!reservedKeys.has(prefKey)) return { x: c.x, y: c.y };
+                        if (!reservedKeys.has(prefKey))
+                            return { x: c.x, y: c.y };
                     }
                 }
             }
@@ -1299,8 +1415,9 @@
         settingsCloseBtn.style.visibility = "visible";
         resetBtn.style.visibility = "hidden";
         hintBtn.style.visibility = "hidden";
+        newGameBtn.style.visibility = "hidden";
+        statusEl.style.visibility = "hidden";
 
-        setStatus("");
         applySettingsToUI();
     };
 
@@ -1319,8 +1436,8 @@
             speed: clampInt(speedSlider.value, 0, 2, DEFAULT_SETTINGS.speed),
             animal: settings.animal === "🐹" ? "🐹" : "🐭",
             shake: !!shakeToggle.checked,
-            soundEnabled: !!soundToggle.checked,
             soundVolume: clampInt(soundVolumeSlider.value, 0, 100, 60) / 100,
+            displayMode: settings.displayMode,
         };
 
         if (settings.difficulty !== oldDifficulty) regenBoard = true;
@@ -1335,6 +1452,8 @@
         settingsCloseBtn.style.visibility = "hidden";
         resetBtn.style.visibility = "visible";
         hintBtn.style.visibility = "visible";
+        newGameBtn.style.visibility = "visible";
+        statusEl.style.visibility = "visible";
     };
 
     settingsBtn.addEventListener("click", openSettings);
@@ -1365,6 +1484,25 @@
         });
     });
 
+    displayModeBtns.forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const m = ["zen", "status", "score"].includes(btn.dataset.display)
+                ? btn.dataset.display
+                : "zen";
+            settings.displayMode = m;
+            let txt;
+            if (m === "zen") txt = "nothing";
+            else if (m === "status") txt = "status";
+            else if (m === "score") txt = "score";
+            displayModeValue.textContent = txt;
+            for (const b of displayModeBtns)
+                b.classList.toggle("active", b.dataset.display === m);
+            // обновим отображение статуса
+            if (m === "score") setStatus(`${score}`);
+            else setStatus(``);
+        });
+    });
+
     // ====== Кнопки ======
     resetBtn.addEventListener("click", async () => {
         if (isResolving || isSettingsOpen) return;
@@ -1375,13 +1513,52 @@
         await syncDom(true);
         // setStatus(`перемешали (${r.attempt})`);
         setStatus(`перемешали`);
-
+        saveBoard();
         isResolving = false;
     });
 
     hintBtn.addEventListener("click", async () => {
         const move = findAnyMove();
         if (move) showHint(move);
+    });
+
+    // ====== Confirm dialog ======
+    let _confirmResolve = null;
+
+    const showConfirm = () =>
+        new Promise((resolve) => {
+            _confirmResolve = resolve;
+            confirmDialog.hidden = false;
+        });
+
+    const closeConfirm = (result) => {
+        confirmDialog.hidden = true;
+        if (_confirmResolve) {
+            _confirmResolve(result);
+            _confirmResolve = null;
+        }
+    };
+
+    confirmOk.addEventListener("click", () => closeConfirm(true));
+    confirmNo.addEventListener("click", () => closeConfirm(false));
+    confirmDialog.addEventListener("click", (e) => {
+        if (e.target === confirmDialog) closeConfirm(false);
+    });
+
+    newGameBtn.addEventListener("click", async () => {
+        if (isResolving || isSettingsOpen) return;
+
+        const ok = await showConfirm();
+        if (!ok) return;
+
+        isResolving = true;
+        selected = null;
+        score = 0;
+        saveScore();
+        generateBoard();
+        await syncDom(false);
+        setStatus("new game");
+        isResolving = false;
     });
 
     // ====== Swipe ======
@@ -1563,9 +1740,17 @@
     // ====== PWA: Service Worker ======
     if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
-            navigator.serviceWorker.register("./sw.js").catch(() => {
-                // zen: без паники
-            });
+            navigator.serviceWorker
+                .register("./sw.js", { updateViaCache: "none" })
+                .catch(() => {
+                    // zen: без паники
+                });
+        });
+
+        // Когда новый SW активируется и захватывает контроль — перезагружаем страницу,
+        // чтобы получить свежие файлы из нового кэша.
+        navigator.serviceWorker.addEventListener("controllerchange", () => {
+            window.location.reload();
         });
     }
 
@@ -1580,8 +1765,10 @@
     // ====== Старт ======
     (async () => {
         applySettingsToRuntime(false);
-        generateBoard();
+        if (!tryRestoreBoard()) {
+            generateBoard();
+        }
         await syncDom(false);
-        setStatus("готово");
+        setStatus("ready");
     })();
 })();

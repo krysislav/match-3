@@ -15,7 +15,7 @@
     <header class="topbar">
       <div>
         <div class="title">zen match-3</div>
-        <div class="title-hint">тихо двигаем еду под сериал</div>
+        <div class="title-hint">cozy nobrainer for relaxation</div>
       </div>
 
       <div style="position:relative;width:42px;height:42px;flex-shrink:0">
@@ -31,38 +31,38 @@
       <!-- Настройки (показываются вместо board) -->
       <div id="settingsPanel" class="board settings-panel" aria-label="Настройки" hidden>
         <div class="settings-top">
-          <div class="settings-title">настройки</div>
+          <div class="settings-title">settings</div>
         </div>
 
         <div class="settings-list">
           <div class="setting">
             <div class="setting-row">
-              <div class="setting-label">сложность</div>
+              <div class="setting-label">difficulty</div>
               <div id="difficultyValue" class="setting-value">2</div>
             </div>
             <input id="difficultySlider" class="slider" type="range" min="0" max="4" step="1" value="2" />
-            <div class="setting-hint">типов еды: <span id="difficultyTypes">6</span></div>
+            <div class="setting-hint">types of food: <span id="difficultyTypes">6</span></div>
           </div>
 
           <div class="setting">
             <div class="setting-row">
-              <div class="setting-label">скорость анимации</div>
+              <div class="setting-label">animation speed</div>
               <div id="speedValue" class="setting-value">1</div>
             </div>
             <input id="speedSlider" class="slider" type="range" min="0" max="2" step="1" value="1" />
-            <div class="setting-hint">чтобы всё видеть</div>
+            <div class="setting-hint">to see everything</div>
           </div>
 
           <div class="setting">
             <div class="setting-row">
-              <div class="setting-label">животное</div>
+              <div class="setting-label">animal</div>
               <div class="setting-value" id="animalValue">🐭</div>
             </div>
             <div class="segmented">
               <button type="button" class="seg-btn" data-animal="🐭">🐭</button>
               <button type="button" class="seg-btn" data-animal="🐹">🐹</button>
             </div>
-            <div class="setting-hint">кто приходит и всё жрёт</div>
+            <div class="setting-hint">who comes to eat</div>
           </div>
 
           <div class="setting">
@@ -73,40 +73,53 @@
                 <span class="switch-ui"></span>
               </label>
             </div>
-            <div class="setting-hint">мягко трясём поле при больших комбо</div>
+            <div class="setting-hint">softly shake the board on big combos</div>
           </div>
 
           <div class="setting">
             <div class="setting-row">
-              <div class="setting-label">звук</div>
-              <label class="switch">
-                <input id="soundToggle" type="checkbox" />
-                <span class="switch-ui"></span>
-              </label>
-            </div>
-            <div class="setting-hint">звуковые эффекты</div>
-          </div>
-
-          <div class="setting">
-            <div class="setting-row">
-              <div class="setting-label">громкость</div>
+              <div class="setting-label">sound</div>
               <div id="soundVolumeValue" class="setting-value">60%</div>
             </div>
             <input id="soundVolumeSlider" class="slider" type="range" min="0" max="100" step="5" value="60" />
-            <div class="setting-hint">громкость эффектов</div>
+            <div class="setting-hint">volume of effects</div>
           </div>
-        </div>
+
+          <div class="setting">
+            <div class="setting-row">
+              <div class="setting-label">status text</div>
+              <div class="setting-value" id="displayModeValue">zen</div>
+            </div>
+            <div class="segmented">
+              <button type="button" class="seg-btn" data-display="zen">zen</button>
+              <button type="button" class="seg-btn" data-display="status">status</button>
+              <button type="button" class="seg-btn" data-display="score">score</button>
+            </div>
+            <div class="setting-hint">what to show below the board</div>
+          </div>
       </div>
     </section>
 
     <footer class="footer">
       <div>
-        <button id="hintBtn" class="btn" type="button">?</button>
-        <button id="resetBtn" class="btn" type="button">перемешать</button>
+        <button id="hintBtn" class="btn" type="button">💡</button>
+        <button id="resetBtn" class="btn" type="button">🔀</button>
+        <button id="newGameBtn" class="btn" type="button">🎮</button>
       </div>
       <div id="status" class="status" aria-live="polite"></div>
     </footer>
   </main>
+
+  <!-- Диалог подтверждения -->
+  <div id="confirmDialog" class="confirm-overlay" hidden aria-modal="true" role="dialog" aria-labelledby="confirmMsg">
+    <div class="confirm-box">
+      <div id="confirmMsg" class="confirm-msg">start a new game?</div>
+      <div class="confirm-btns">
+        <button id="confirmOk"  class="btn confirm-btn-ok"  type="button">✅ yes</button>
+        <button id="confirmNo"  class="btn confirm-btn-no"  type="button">❌ no</button>
+      </div>
+    </div>
+  </div>
 
   <script src="./main.js"></script>
 </body>
