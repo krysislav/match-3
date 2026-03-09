@@ -31,7 +31,11 @@
 
 html,
 body {
+  width: 100%;
   height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  position: fixed; /* PWA: предотвращает rubber-band и pull-to-refresh на iOS/Android */
 }
 
 body {
@@ -43,13 +47,11 @@ body {
   /* mobile-first: приложение = экран */
   padding: 0;
   display: block;
-  overflow: hidden;
-  overscroll-behavior: none; /* запрещаем pull-to-refresh и overscroll */
 }
 
 .app {
   width: 100%;
-  height: 100dvh;
+  height: 100%;
 
   background: linear-gradient(180deg, var(--panel) 0%, var(--panel2) 100%);
   border: 0;
