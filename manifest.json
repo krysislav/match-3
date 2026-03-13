@@ -2,7 +2,7 @@
   "name": "Zen Match-3",
   "short_name": "Zen M3",
   "description": "Cozy nobrainer match-3 for relaxation",
-  "start_url": "./index.html",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#121620",
   "theme_color": "#121620",
