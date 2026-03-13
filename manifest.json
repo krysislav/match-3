@@ -1,6 +1,7 @@
 {
   "name": "Zen Match-3",
   "short_name": "Zen M3",
+  "description": "Cozy nobrainer match-3 for relaxation",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#121620",
@@ -10,12 +11,20 @@
     {
       "src": "icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "icons/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

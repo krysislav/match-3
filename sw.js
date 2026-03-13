@@ -1,4 +1,4 @@
-const CACHE_NAME = "zen-match3-v1.2.9";
+const CACHE_NAME = "zen-match3-v1.2.10";
 
 const FILES_TO_CACHE = [
   "./",
@@ -9,8 +9,12 @@ const FILES_TO_CACHE = [
 ];
 
 self.addEventListener("install", (event) => {
+  // Pre-caching не блокирует установку SW — если сеть недоступна,
+  // файлы всё равно закэшируются при первом сетевом запросе.
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(FILES_TO_CACHE))
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.addAll(FILES_TO_CACHE))
+      .catch(() => { /* тихо: install не падает */ })
   );
   self.skipWaiting();
 });
