@@ -140,6 +140,10 @@ body {
 
   cursor: pointer;
 
+  /* Чёткость эмодзи: отключаем subpixel rendering */
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeSpeed;
+
   transition:
     transform calc(var(--move-ms) * var(--speed-mult)) cubic-bezier(.2, .8, .2, 1),
     opacity calc(var(--pop-ms) * var(--speed-mult)) ease,

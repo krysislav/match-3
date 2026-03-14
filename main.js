@@ -111,8 +111,8 @@
     const posToPx = (x, y) => {
         const step = CELL() + GAP();
         return {
-            tx: BOARD_PAD + x * step,
-            ty: BOARD_PAD + y * step,
+            tx: Math.round(BOARD_PAD + x * step),
+            ty: Math.round(BOARD_PAD + y * step),
         };
     };
 
@@ -1298,7 +1298,7 @@
                 matches.add(cellKey(x, y));
             }
         }
-        setStatus("всё сожрано!");
+        setStatus("all food was eaten!");
         // ==== дальше всё как было ====
         await animateRemoval(matches);
         removeMatches(matches);
