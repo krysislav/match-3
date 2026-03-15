@@ -616,7 +616,6 @@
 
         if (settings.displayMode === "score") status = `${score} (+${added})`;
         else if (settings.displayMode === "zen") status = ``;
-
         setStatus(status);
     };
 
@@ -1129,10 +1128,9 @@
     };
 
     // ====== Resolve с анимациями ======
-    const resolveBoardAnimated = async (preferredDests = null) => {
+    const resolveBoardAnimated = async (preferredDests = null, totalRemoved = 0) => {
         clearHint();
 
-        let totalRemoved = 0;
         let steps = 0;
 
         let preferredOnce = preferredDests;
@@ -1307,7 +1305,7 @@
         await syncDom(true);
 
         const removed = W * H;
-        const r = await resolveBoardAnimated(null);
+        const r = await resolveBoardAnimated(null, removed);
         return { removed, cascades: r.steps, extraRemoved: r.totalRemoved };
     }
 
